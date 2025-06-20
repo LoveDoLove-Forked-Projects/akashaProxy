@@ -120,7 +120,7 @@ start_clash() {
         log "info: 已开启代理udp"
     fi
 
-    pid=`cat ${Clash_pid_file} 2> /dev/null`
+    pid=`busybox pidof ${Clash_bin_path}`
     if (cat /proc/${pid}/cmdline | grep -q clash) ; then
         log "info: 检测到clash已启动,此次不启动."
         exit 1
@@ -249,7 +249,6 @@ start_clash() {
                 nohup busybox setuidgid ${Clash_user_group} ${Adguard_bin_path} -w ${Clash_run_path} -c ${Adguard_config_file} --pidfile ${Adguard_pid_file} -l /data/clash/run/adg.log 2>&1 &
             fi
             nohup busybox setuidgid ${Clash_user_group} ${Clash_bin_path} -d ${Clash_data_dir} -f ${temporary_config_file} > /data/clash/run/kernel.log 2>&1 &
-            echo "$(busybox pidof ${Clash_bin_path})">${Clash_pid_file}
             cp -Rf /data/clash /data/clash.old
             log "info: 代理模式:${mode}"
             if [ ${adguard} == "true" ];then
@@ -274,13 +273,12 @@ start_clash() {
     if [ "${Clash_port_skipdetection}" == "false" ]; then
         sleep ${WaitClashStartTime}
         if ! (${scripts_dir}/clash.tool -p) ; then
-            kill -15 `cat ${Clash_pid_file}`
+            kill -15 `busybox pidof ${Clash_bin_path}`
             log "err: 端口未检测到,已停止${Clash_bin_name}内核以及后续逻辑."
             if [ ${adguard} == "true" ];then
                 kill -15 `cat ${Adguard_pid_file}`
                 log "err: 已停止adguard home内核."
             fi
-            rm -rf ${Clash_pid_file}
             exit 1
         fi
     else
