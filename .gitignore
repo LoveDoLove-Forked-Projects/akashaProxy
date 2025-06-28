@@ -1,4 +1,5 @@
 akashaProxy-*.zip
 module/module.prop
 module/bin/*
+module/webroot
 node_modules

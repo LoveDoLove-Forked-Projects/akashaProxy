@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-
-  build-arm64:
+  build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -20,27 +19,9 @@ jobs:
     - name: Set ENV
       run: |
         sudo timedatectl set-timezone "Asia/Shanghai"
-        VERSION=$(cd Clash.Meta && git rev-parse --short HEAD)
-        BUILDTIME=$(date -u)
-        echo "TAGS=with_gvisor" >> $GITHUB_ENV
-        echo "buildSha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        echo "LDFLAGS=-X 'github.com/metacubex/mihomo/constant.Version=${VERSION}' -X 'github.com/metacubex/mihomo/constant.BuildTime=${BUILDTIME}' -w -s -buildid=" >> $GITHUB_ENV
         [ ! -f module/bin ] && mkdir module/bin
         text="${{ github.event.head_commit.message }}"
         echo "commit=$(echo $text | sed 's/\([][\\`.*^$\/+?{}()=!|:-]\)/\\\1/g')" >> $GITHUB_ENV
-
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: "1.20"
-        check-latest: true
-
-    - name: Setup Android NDK
-      uses: nttld/setup-ndk@v1
-      id: setup-ndk
-      with:
-        ndk-version: r26b
-        add-to-path: true
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -51,24 +32,15 @@ jobs:
       run: |
         make build-webui
 
-    - name: Build Clash Meta - Arm64
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+    - name: download Mihomo
       run: |
-        cd Clash.Meta
-        go mod tidy
-        CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
-        CGO_ENABLED=0 CC=${CC} GOARCH=arm64 GOOS=android go build -tags ${TAGS} -trimpath -ldflags "${LDFLAGS}" -o ../module/bin/clashMeta-android-arm64-v8a
-        cd ../module/bin && tar -vcjf clashMeta-android-arm64-v8a.tar.bz2 clashMeta-android-arm64-v8a && rm -rf clashMeta-android-arm64-v8a
-
-    - name: Pack Module Arm64
+        make download-mihomo
+    
+    - name: Pack Module
       run: |
         make pack
-        mv akashaProxy.zip akashaProxy-arm64-${{ env.buildSha }}.zip
-        mkdir -p out/akashaProxy-arm64-${{ env.buildSha }}
-        cp -Rf module/* out/akashaProxy-arm64-${{ env.buildSha }}/
         
-    - name: Upload Arm64
+    - name: Upload
       uses: actions/upload-artifact@main
       with:
         name: akashaProxy-arm64-${{ env.buildSha }}
@@ -96,219 +68,3 @@ jobs:
         ESCAPED=$(python3 -c 'import json,os,urllib.parse; print(urllib.parse.quote(json.dumps(os.environ["COMMIT_MESSAGE"])))')
         curl -v "https://api.telegram.org/bot${BOT_TOKEN}/sendMediaGroup?chat_id=${CHANNEL_ID}&media=%5B%7B%22type%22:%22document%22,%20%22media%22:%22attach://release%22,%22parse_mode%22:%22MarkdownV2%22,%22caption%22:${ESCAPED}%7D%5D" -F release="@${FILE}"
             
-  build-arm32:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Clone Submodules
-      run: git submodule update --init --recursive
-
-    - name: Set ENV
-      run: |
-        sudo timedatectl set-timezone "Asia/Shanghai"
-        VERSION=$(cd Clash.Meta && git rev-parse --short HEAD)
-        BUILDTIME=$(date -u)
-        echo "TAGS=with_gvisor" >> $GITHUB_ENV
-        echo "buildSha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        echo "LDFLAGS=-X 'github.com/metacubex/mihomo/constant.Version=${VERSION}' -X 'github.com/metacubex/mihomo/constant.BuildTime=${BUILDTIME}' -w -s -buildid=" >> $GITHUB_ENV
-        [ ! -f module/bin ] && mkdir module/bin
-        text="${{ github.event.head_commit.message }}"
-        echo "commit=$(echo $text | sed 's/\([][\\`.*^$\/+?{}()=!|:-]\)/\\\1/g')" >> $GITHUB_ENV
-
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: "1.21"
-        check-latest: true
-
-    - name: Setup Android NDK
-      uses: nttld/setup-ndk@v1
-      id: setup-ndk
-      with:
-        ndk-version: r26b
-        add-to-path: true
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-
-    - name: Build WebUI
-      run: |
-        make build-webui
-
-    - name: Build Clash Meta - Arm32
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-      run: |
-        cd Clash.Meta
-        go mod tidy
-        CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi33-clang
-        CGO_ENABLED=0 CC=${CC} GOARCH=arm GOOS=android go build -tags ${TAGS} -trimpath -ldflags "${LDFLAGS}" -o ../module/bin/clashMeta-android-armeabi-v7a
-        cd ../module/bin && tar -vcjf clashMeta-android-armeabi-v7a.tar.bz2 clashMeta-android-armeabi-v7a && rm -rf clashMeta-android-armeabi-v7a
-
-    - name: Pack Module Arm32
-      run: |
-        make pack
-        mv akashaProxy.zip akashaProxy-arm32-${{ env.buildSha }}.zip
-        mkdir -p out/akashaProxy-arm32-${{ env.buildSha }}
-        cp -Rf module/* out/akashaProxy-arm32-${{ env.buildSha }}/
-        
-    - name: Upload Arm32
-      uses: actions/upload-artifact@main
-      with:
-        name: akashaProxy-arm32-${{ env.buildSha }}
-        path: out/akashaProxy-arm32-${{ env.buildSha }}
-
-  build-x86:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Clone Submodules
-      run: git submodule update --init --recursive
-
-    - name: Set ENV
-      run: |
-        sudo timedatectl set-timezone "Asia/Shanghai"
-        VERSION=$(cd Clash.Meta && git rev-parse --short HEAD)
-        BUILDTIME=$(date -u)
-        echo "TAGS=with_gvisor" >> $GITHUB_ENV
-        echo "buildSha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        echo "LDFLAGS=-X 'github.com/metacubex/mihomo/constant.Version=${VERSION}' -X 'github.com/metacubex/mihomo/constant.BuildTime=${BUILDTIME}' -w -s -buildid=" >> $GITHUB_ENV
-        [ ! -f module/bin ] && mkdir module/bin
-        text="${{ github.event.head_commit.message }}"
-        echo "commit=$(echo $text | sed 's/\([][\\`.*^$\/+?{}()=!|:-]\)/\\\1/g')" >> $GITHUB_ENV
-
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: "1.21"
-        check-latest: true
-
-    - name: Setup Android NDK
-      uses: nttld/setup-ndk@v1
-      id: setup-ndk
-      with:
-        ndk-version: r26b
-        add-to-path: true
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-
-    - name: Build WebUI
-      run: |
-        make build-webui
-
-    - name: Build Clash Meta - x86_64
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-      run: |
-        cd Clash.Meta
-        go mod tidy
-        CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android33-clang
-        CGO_ENABLED=0 CC=${CC} GOARCH=amd64 GOOS=linux go build -tags ${TAGS} -trimpath -ldflags "${LDFLAGS}" -o ../module/bin/clashMeta-android-x86_64
-        cd ../module/bin && tar -vcjf clashMeta-android-x86_64.tar.bz2 clashMeta-android-x86_64 && rm -rf clashMeta-android-x86_64
-
-    - name: Pack Module x86_64
-      run: |
-        make pack
-        mv akashaProxy.zip akashaProxy-x86_64-${{ env.buildSha }}.zip
-        mkdir -p out/akashaProxy-x86_64-${{ env.buildSha }}
-        cp -Rf module/* out/akashaProxy-x86_64-${{ env.buildSha }}/
-        
-        
-    - name: Upload x86_64
-      uses: actions/upload-artifact@main
-      with:
-        name: akashaProxy-x86_64-${{ env.buildSha }}
-        path: out/akashaProxy-x86_64-${{ env.buildSha }}
-
-  build-all:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Clone Submodules
-      run: git submodule update --init --recursive
-
-    - name: Set ENV
-      run: |
-        sudo timedatectl set-timezone "Asia/Shanghai"
-        VERSION=$(cd Clash.Meta && git rev-parse --short HEAD)
-        BUILDTIME=$(date -u)
-        echo "TAGS=with_gvisor" >> $GITHUB_ENV
-        echo "buildSha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        echo "LDFLAGS=-X 'github.com/metacubex/mihomo/constant.Version=${VERSION}' -X 'github.com/metacubex/mihomo/constant.BuildTime=${BUILDTIME}' -w -s -buildid=" >> $GITHUB_ENV
-        [ ! -f module/bin ] && mkdir module/bin
-        text="${{ github.event.head_commit.message }}"
-        echo "commit=$(echo $text | sed 's/\([][\\`.*^$\/+?{}()=!|:-]\)/\\\1/g')" >> $GITHUB_ENV
-
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: "1.21"
-        check-latest: true
-
-    - name: Setup Android NDK
-      uses: nttld/setup-ndk@v1
-      id: setup-ndk
-      with:
-        ndk-version: r26b
-        add-to-path: true
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-
-    - name: Build WebUI
-      run: |
-        make build-webui
-
-    - name: Build Clash Meta - Arm64
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-      run: |
-        cd Clash.Meta
-        go mod tidy
-        CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android33-clang
-        CGO_ENABLED=0 CC=${CC} GOARCH=arm64 GOOS=android go build -tags ${TAGS} -trimpath -ldflags "${LDFLAGS}" -o ../module/bin/clashMeta-android-arm64-v8a
-        cd ../module/bin && tar -vcjf clashMeta-android-arm64-v8a.tar.bz2 clashMeta-android-arm64-v8a && rm -rf clashMeta-android-arm64-v8a
-
-    - name: Build Clash Meta - Arm32
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-      run: |
-        cd Clash.Meta
-        CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi33-clang
-        CGO_ENABLED=0 CC=${CC} GOARCH=arm GOOS=android go build -tags ${TAGS} -trimpath -ldflags "${LDFLAGS}" -o ../module/bin/clashMeta-android-armeabi-v7a
-        cd ../module/bin && tar -vcjf clashMeta-android-armeabi-v7a.tar.bz2 clashMeta-android-armeabi-v7a && rm -rf clashMeta-android-armeabi-v7a
-
-
-    - name: Build Clash Meta - x86_64
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-      run: |
-        cd Clash.Meta
-        CC=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android33-clang
-        CGO_ENABLED=0 CC=${CC} GOARCH=amd64 GOOS=linux go build -tags ${TAGS} -trimpath -ldflags "${LDFLAGS}" -o ../module/bin/clashMeta-android-x86_64
-        cd ../module/bin && tar -vcjf clashMeta-android-x86_64.tar.bz2 clashMeta-android-x86_64 && rm -rf clashMeta-android-x86_64
-
-    - name: Pack Module armAll
-      run: |
-        make pack
-        mv akashaProxy.zip akashaProxy-armAll-${{ env.buildSha }}.zip
-        mkdir -p out/akashaProxy-armAll-${{ env.buildSha }}
-        cp -Rf module/* out/akashaProxy-armAll-${{ env.buildSha }}/
-        
-
-    - name: Upload armAll
-      uses: actions/upload-artifact@main
-      with:
-        name: akashaProxy-armAll-${{ env.buildSha }}
-        path: out/akashaProxy-armAll-${{ env.buildSha }}
-
