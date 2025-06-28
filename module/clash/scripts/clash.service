@@ -249,6 +249,7 @@ start_clash() {
                 nohup busybox setuidgid ${Clash_user_group} ${Adguard_bin_path} -w ${Clash_run_path} -c ${Adguard_config_file} --pidfile ${Adguard_pid_file} -l /data/clash/run/adg.log 2>&1 &
             fi
             nohup busybox setuidgid ${Clash_user_group} ${Clash_bin_path} -d ${Clash_data_dir} -f ${temporary_config_file} > /data/clash/run/kernel.log 2>&1 &
+            echo "$(busybox pidof ${Clash_bin_path})" > ${Clash_pid_file}
             cp -Rf /data/clash /data/clash.old
             log "info: 代理模式:${mode}"
             if [ ${adguard} == "true" ];then

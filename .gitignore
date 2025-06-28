@@ -1,5 +1,6 @@
-akashaProxy-*.zip
+akashaProxy*.zip
 module/module.prop
 module/bin/*
+module/clash/zashboard
 module/webroot
 node_modules
