@@ -46,3 +46,5 @@ clean:
 	rm -rf ./module/module.prop
 	rm -rf $(NAME).zip
 	rm -rf ./module/webroot
+	rm -rf ./module/clash/zashboard
+	rm -rf ./module/bin/*
