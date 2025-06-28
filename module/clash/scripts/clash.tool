@@ -98,32 +98,20 @@ upgrade_clash() {
     log "正在下载 ${Clash_bin_name} 内核..."
     mkdir -p ${Clash_data_dir}/clashkernel/temp
     remote_clash_ver=$1
-    general_clash_filename="mihomo-android-arm64-v8-"
-    if [[ ${cgo} == "true" && ${go120} == "true" ]];then
-        echo "err: 目前无 cgo 和 go120 共存的 ${Clash_bin_name} 内核"
-    elif [[ ${cgo} == "true" ]];then
-        specific_clash_filename=${general_clash_filename}cgo-${remote_clash_ver}
-    elif [[ ${go120} == "true" ]];then
-        specific_clash_filename=${general_clash_filename}go120-${remote_clash_ver}
-    else
-        specific_clash_filename=${general_clash_filename}${remote_clash_ver}
-    fi
+    specific_clash_filename="mihomo-android-${ABI}-${remote_clash_ver}"
     if [ ${alpha} == "true" ];then
-        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/clashMeta.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/${specific_clash_filename}.gz"
+        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/${specific_clash_filename}.gz"
     else
-        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/clashMeta.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/latest/download/${specific_clash_filename}.gz"
+        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/latest/download/${specific_clash_filename}.gz"
     fi
-    unset remote_clash_ver
-    unset general_clash_filename
-    unset specific_clash_filename
 
-    if [ -f ${Clash_data_dir}/clashkernel/temp/clashMeta.gz ];then
-        busybox gunzip -f ${Clash_data_dir}/clashkernel/temp/clashMeta.gz
-        if [ -f ${Clash_data_dir}/clashkernel/temp/clashMeta ];then
-            rm -f ${Clash_data_dir}/clashkernel/clashMeta
-            mv ${Clash_data_dir}/clashkernel/temp/clashMeta ${Clash_data_dir}/clashkernel/
+    if [ -f ${Clash_data_dir}/clashkernel/temp/mihomo.gz ];then
+        busybox gunzip -f ${Clash_data_dir}/clashkernel/temp/mihomo.gz
+        if [ -f ${Clash_data_dir}/clashkernel/temp/mihomo ];then
+            rm -f ${Clash_data_dir}/clashkernel/mihomo
+            mv ${Clash_data_dir}/clashkernel/temp/mihomo ${Clash_data_dir}/clashkernel/
             rm -rf ${Clash_data_dir}/clashkernel/temp
-            chmod +x ${Clash_data_dir}/clashkernel/clashMeta
+            chmod +x ${Clash_data_dir}/clashkernel/mihomo
             log "info: 更新完成"
         else
             rm -rf ${Clash_data_dir}/clashkernel/temp

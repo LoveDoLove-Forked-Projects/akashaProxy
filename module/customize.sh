@@ -6,13 +6,6 @@ MIN_MAGISK_VERSION=26402
 
 if [ ! $KSU ];then
     ui_print "- Magisk ver: $MAGISK_VER"
-    if [[ $($MAGISK_VER | grep "kitsune") ]] || [[ $($MAGISK_VER | grep "delta") ]]; then
-        ui_print "*********************************************************"
-        ui_print "不支持 Magisk Delta 和 Magisk kitsune"
-        echo "">remove
-        abort "*********************************************************"
-    fi
-    
     ui_print "- Magisk version: $MAGISK_VER_CODE"
     if [ "$MAGISK_VER_CODE" -lt $MIN_MAGISK_VERSION ]; then
         ui_print "*********************************************************"
@@ -41,19 +34,15 @@ ABI=$(getprop ro.product.cpu.abi)
 mkdir -p ${clash_data_dir}/run
 mkdir -p ${clash_data_dir}/clashkernel
 
-if [ ! -f ${clash_data_dir}/clashkernel/clashMeta ];then
+[ -f ${clash_data_dir}/clashkernel/ClashMeta ] && rm -rf ${clash_data_dir}/clashkernel/ClashMeta
+if [ ! -f ${clash_data_dir}/clashkernel/mihomo ];then
     unzip -o "$ZIPFILE" 'bin/*' -d "$TMPDIR" >&2
-    if [ -f "${MODPATH}/bin/clashMeta-android-${ABI}.tar.bz2" ];then
-        tar -xjf ${MODPATH}/bin/clashMeta-android-${ABI}.tar.bz2 -C ${clash_data_dir}/clashkernel/
-        mv -f ${clash_data_dir}/clashkernel/clashMeta-android-${ABI} ${clash_data_dir}/clashkernel/clashMeta
+    if [ -f "${MODPATH}/bin/clashMeta-android-${ABI}.gz" ];then
+        ui_print "- 正在解压 clashMeta 内核..."
+        gunzip -f ${MODPATH}/bin/clashMeta-android-${ABI}.gz
+        mv -f ${MODPATH}/bin/clashMeta-android-${ABI} ${clash_data_dir}/clashkernel/mihomo
     else
-        if [ -f "${MODPATH}/bin/clashMeta-android-default.tar.bz2" ];then
-            tar -xjf ${MODPATH}/bin/clashMeta-android-${ABI}.tar.bz2 -C ${clash_data_dir}/clashkernel/
-            mv -f ${clash_data_dir}/clashkernel/clashMeta-android-${ABI} ${clash_data_dir}/clashkernel/clashMeta
-        else
-            ui_print "未找到架构: ${ABI}"
-            abort "请使用 “make default” 为${ABI}架构编译clashMeta"
-        fi
+        ui_print "未找到架构: ${ABI} 请自行前往 GitHub 项目地址下载 → https://github.com/MetaCubeX/mihomo/releases"
     fi
 fi
 
