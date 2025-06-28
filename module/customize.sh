@@ -42,7 +42,7 @@ if [ ! -f ${clash_data_dir}/clashkernel/mihomo ];then
         gunzip -f ${MODPATH}/bin/clashMeta-android-${ABI}.gz
         mv -f ${MODPATH}/bin/clashMeta-android-${ABI} ${clash_data_dir}/clashkernel/mihomo
     else
-        ui_print "未找到架构: ${ABI} 请自行前往 GitHub 项目地址下载 → https://github.com/MetaCubeX/mihomo/releases"
+        abort "未找到架构: ${ABI} 请自行前往 GitHub 项目地址下载 → https://github.com/MetaCubeX/mihomo/releases"
     fi
 fi
 
@@ -85,15 +85,10 @@ ui_print "- 开始设置权限."
 set_perm_recursive ${MODPATH} 0 0 0770 0770
 set_perm_recursive ${clash_data_dir} ${system_uid} ${system_gid} 0770 0770
 set_perm_recursive ${clash_data_dir}/scripts ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/mosdns ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/adguard ${system_uid} ${system_gid} 0770 0770
 set_perm_recursive ${clash_data_dir}/tools ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/clashkernel ${system_uid} ${system_gid} 6770 6770
-set_perm  ${clash_data_dir}/mosdns/mosdns  ${system_uid}  ${system_gid}  6770
-set_perm  ${clash_data_dir}/adguard/AdGuardHome  ${system_uid}  ${system_gid}  6770
-set_perm  ${clash_data_dir}/clashkernel/clashMeta  ${system_uid}  ${system_gid}  6770
-set_perm  ${clash_data_dir}/clash.config ${system_uid} ${system_gid} 0770
-set_perm  ${clash_data_dir}/packages.list ${system_uid} ${system_gid} 0770
+set_perm_recursive ${clash_data_dir}/clashkernel ${system_uid} ${system_gid} 6775 6755
+set_perm  ${clash_data_dir}/clashkernel/mihomo  ${system_uid}  ${system_gid}  6755
+
 
 
 ui_print "
