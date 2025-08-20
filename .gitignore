@@ -4,3 +4,4 @@ module/bin/*
 module/clash/zashboard
 module/webroot
 node_modules
+module/clash/bin/yamlcli
