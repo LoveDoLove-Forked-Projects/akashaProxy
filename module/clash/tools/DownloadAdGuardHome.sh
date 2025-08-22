@@ -1,4 +1,3 @@
-#!/system/bin/sh
 . /data/clash/clash.config
 
 curl -# -L -o AdGuardHome_linux_arm64.tar.gz "${ghproxy}/https://github.com/AdguardTeam/AdGuardHome/releases/latest/download/AdGuardHome_linux_arm64.tar.gz"

@@ -1,4 +1,3 @@
-#!/system/bin/sh
 Clash_data_dir="/data/clash"
 
 rm_data() {

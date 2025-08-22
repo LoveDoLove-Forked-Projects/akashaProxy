@@ -1,5 +1,3 @@
-#!/system/bin/sh
-
 scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 . /data/clash/clash.config
@@ -21,7 +19,7 @@ monitor_local_ipv4() {
     else
         echo "" >${Clash_run_path}/lastwifi
     fi
-
+    
     if [ "$(settings get global mobile_data 2>&1)" -eq 1 ] || [ "$(settings get global mobile_data1 2>&1)" -eq 1 ]; then
         if [ ! "${mobilestatus}" = "$(cat ${Clash_run_path}/lastmobile)" ]; then
             change=true
@@ -29,28 +27,32 @@ monitor_local_ipv4() {
         fi
     fi
 
-    if [ ${change} == true ]; then
+    if [ "${change}" = "true" ]; then
 
         local_ipv4=$(ip a | awk '$1~/inet$/{print $2}')
         local_ipv6=$(ip -6 a | awk '$1~/inet6$/{print $2}')
         rules_ipv4=$(${iptables_wait} -t mangle -nvL FILTER_LOCAL_IP | grep "ACCEPT" | awk '{print $9}' 2>&1)
         rules_ipv6=$(${ip6tables_wait} -t mangle -nvL FILTER_LOCAL_IP | grep "ACCEPT" | awk '{print $8}' 2>&1)
 
-        for rules_subnet in ${rules_ipv4[*]}; do
+        for rules_subnet in ${rules_ipv4}; do
+            [ -n "${rules_subnet}" ] || continue
             ${iptables_wait} -t mangle -D FILTER_LOCAL_IP -d ${rules_subnet} -j ACCEPT
         done
 
-        for subnet in ${local_ipv4[*]}; do
+        for subnet in ${local_ipv4}; do
+            [ -n "${subnet}" ] || continue
             if ! (${iptables_wait} -t mangle -C FILTER_LOCAL_IP -d ${subnet} -j ACCEPT >/dev/null 2>&1); then
                 ${iptables_wait} -t mangle -I FILTER_LOCAL_IP -d ${subnet} -j ACCEPT
             fi
         done
 
-        for rules_subnet6 in ${rules_ipv6[*]}; do
+        for rules_subnet6 in ${rules_ipv6}; do
+            [ -n "${rules_subnet6}" ] || continue
             ${ip6tables_wait} -t mangle -D FILTER_LOCAL_IP -d ${rules_subnet6} -j ACCEPT
         done
 
-        for subnet6 in ${local_ipv6[*]}; do
+        for subnet6 in ${local_ipv6}; do
+            [ -n "${subnet6}" ] || continue
             if ! (${ip6tables_wait} -t mangle -C FILTER_LOCAL_IP -d ${subnet6} -j ACCEPT >/dev/null 2>&1); then
                 ${ip6tables_wait} -t mangle -I FILTER_LOCAL_IP -d ${subnet6} -j ACCEPT
             fi
@@ -69,7 +71,7 @@ monitor_local_ipv4() {
 restart_clash() {
     ${scripts_dir}/clash.service -k && ${scripts_dir}/clash.iptables -k
     ${scripts_dir}/clash.service -s && ${scripts_dir}/clash.iptables -s
-    if [ "$?" == "0" ]; then
+    if [ "$?" = "0" ]; then
         log "info: 内核成功重启."
     else
         ${scripts_dir}/clash.service -k && ${scripts_dir}/clash.iptables -k
@@ -99,7 +101,7 @@ upgrade_clash() {
     mkdir -p ${Clash_data_dir}/clashkernel/temp
     remote_clash_ver=$1
     specific_clash_filename="mihomo-android-${ABI}-${remote_clash_ver}"
-    if [ ${alpha} == "true" ];then
+    if [ "${alpha}" = "true" ];then
         curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/${specific_clash_filename}.gz"
     else
         curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/latest/download/${specific_clash_filename}.gz"
@@ -126,12 +128,12 @@ upgrade_clash() {
 }
 
 check_clash_ver() {
-    if [[ "${alpha}" == "true" ]];then
+    if [ "${alpha}" = "true" ];then
         remote_clash_ver=$(curl --connect-timeout 5 -Ls "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/version.txt")
     else
         remote_clash_ver=$(curl --connect-timeout 5 -Ls "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt")
     fi
-    if [[ "${remote_clash_ver}" == "" ]];then
+    if [ -z "${remote_clash_ver}" ];then
         unset remote_clash_ver
         log "err: 网络连接失败"
         return
@@ -143,9 +145,9 @@ check_clash_ver() {
         local_clash_ver=""
     fi
 
-    if [[ "${remote_clash_ver}" == "${local_clash_ver}" ]];then
+    if [ "${remote_clash_ver}" = "${local_clash_ver}" ];then
         log "info: 当前为最新版: ${local_clash_ver}"
-    elif [[ ${local_clash_ver} == "" ]];then
+    elif [ -z "${local_clash_ver}" ];then
         log "err: 获取本地版本失败, 最新版为: ${remote_clash_ver}"
         upgrade_clash $remote_clash_ver
         if [ "$?" = "0" ]; then
@@ -184,12 +186,12 @@ find_packages_uid() {
     rm -f ${appuid_file}
     rm -f ${appuid_file}.tmp
     hd=""
-    if [ "${mode}" == "global" ]; then
+    if [ "${mode}" = "global" ]; then
         mode=blacklist
         uids=""
     else
-        if [ ${proxyGoogle} == "true" ];then
-            if [ ${mode} == "whitelist" ];then
+        if [ "${proxyGoogle}" = "true" ];then
+            if [ "${mode}" = "whitelist" ];then
                 uids=$(cat ${filter_packages_file} ${Clash_run_path}/Google.dat)
             else
                 log "err: proxyGoogle只能在whitelist模式下使用"
@@ -201,7 +203,7 @@ find_packages_uid() {
     fi
     
     for package in $uids; do
-        if [ "$(grep ":" <<< ${package})" ];then
+        if echo "${package}" | grep -q ":" ; then
             echo "${package}" >> ${appuid_file}
             if [ "${mode}" = "blacklist" ]; then
                 log "info: ${package}已过滤."
@@ -211,7 +213,7 @@ find_packages_uid() {
             continue
         fi
 
-        if [ "$(grep "[0-9].*\." <<< ${package})" ];then
+        if echo "${package}" | grep -q "[0-9].*\." ; then
             echo "${package}" >> ${appuid_file}
             if [ "${mode}" = "blacklist" ]; then
                 log "info: ${package}已过滤."
@@ -221,16 +223,16 @@ find_packages_uid() {
             continue
         fi
 
-        nhd=$(awk -F ">" '/^[0-9]+>$/{print $1}' <<< "${package}")
+        nhd=$(echo "${package}" | awk -F ">" '/^[0-9]+>$/{print $1}')
         if [ "${nhd}" != "" ]; then
             hd=${nhd}
             continue
         fi
 
         uid=$(awk '$1~/'^"${package}"$'/{print $2}' ${system_packages_file})
-        if [ "${uid}" == "" ]; then
+    if [ -z "${uid}" ]; then
             uids=$(dumpsys package ${package} | grep appId= | awk -F= '{print $2}')
-            if [ "${uids}" == "" ]; then
+            if [ -z "${uids}" ]; then
                 log "warn: ${package}未找到."
                 continue
             else
@@ -261,14 +263,14 @@ port_detection() {
         clash_port=$(ss -antup | grep ${Clash_bin_name} | awk '$7~/'pid="${clash_pid}"*'/{print $5}' | awk -F ':' '{print $2}' | sort -u)
     fi
 
-    if [[ "$(echo ${clash_port} | grep "${Clash_tproxy_port}")" != "" ]];then
+    if [ "$(echo ${clash_port} | grep "${Clash_tproxy_port}")" != "" ];then
         log "info: tproxy端口启动成功."
     else
         log "err: tproxy端口启动失败."
         exit 1
     fi
 
-    if [[ "$(echo ${clash_port} | grep "${Clash_dns_port}")" != "" ]];then
+    if [ "$(echo ${clash_port} | grep "${Clash_dns_port}")" != "" ];then
         log "info: dns端口启动成功."
     else
         log "err: dns端口启动失败."
@@ -281,19 +283,19 @@ port_detection() {
 update_pre() {
     flag=false
     if [ $Geo_auto_update != "true" ];then
-        if [ ${auto_updateGeoIP} == "true" ];then
+        if [ "${auto_updateGeoIP}" = "true" ];then
             update_file ${GeoIP_url} ${Clash_GeoIP_file}
         fi
-        if [ ${auto_updateGeoSite} == "true" ]; then
+    if [ "${auto_updateGeoSite}" = "true" ]; then
             update_file ${GeoSite_url} ${Clash_GeoSite_file}
         fi
     fi
-    if [ ${auto_updateclashMeta} == "true" ] || [ ! -f "${Clash_bin_path}" ]; then
+    if [ "${auto_updateclashMeta}" = "true" ] || [ ! -f "${Clash_bin_path}" ]; then
         check_clash_ver
         flag=true
     fi
-    if [ -f "${Clash_pid_file}" ] && [ ${flag} == true ]; then
-        if [ "${restart_update}" == "true" ];then
+    if [ -f "${Clash_pid_file}" ] && [ "${flag}" = "true" ]; then
+    if [ "${restart_update}" = "true" ];then
             restart_clash
         fi
     fi
@@ -306,13 +308,13 @@ reload() {
 }
 
 limit_clash() {
-    if [ "${Cgroup_memory_limit}" == "" ]; then
+    if [ -z "${Cgroup_memory_limit}" ]; then
         return
     fi
 
-    if [ "${Cgroup_memory_path}" == "" ]; then
+    if [ -z "${Cgroup_memory_path}" ]; then
         Cgroup_memory_path=$(mount | grep cgroup | awk '/memory/{print $3}' | head -1)
-        if [ "${Cgroup_memory_path}" == "" ]; then
+        if [ -z "${Cgroup_memory_path}" ]; then
             log "err: 自动获取Cgroup_memory_path失败."
             return
         fi

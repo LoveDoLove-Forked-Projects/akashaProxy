@@ -1,6 +1,5 @@
-#!/system/bin/sh
+. /data/clash/clash.env
 
-source /data/clash/clash.env
 pid=$(curl -sL http://127.0.0.1:${Clash_ui_port} | grep hello)
 if [[ "${pid}" ]]; then
     echo "正在停止akashaProxy."

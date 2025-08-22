@@ -1,7 +1,5 @@
-#!/system/bin/sh
-
-scripts=`realpath $0`
-scripts_dir=`dirname ${scripts}`
+scripts=$(realpath $0)
+scripts_dir=$(dirname ${scripts})
 . /data/clash/clash.config
 
 create_rule_rules() {
@@ -24,8 +22,7 @@ flush_rule_rules() {
 
 create_mangle_prerouting_chain() {
     ${iptables_wait} -t mangle -N CLASH_PRE
-
-    for subnet in ${reserved_ip[*]} ; do
+    for subnet in ${reserved_ip} ; do
         ${iptables_wait} -t mangle -A CLASH_PRE -d ${subnet} -j ACCEPT
     done
 
@@ -34,7 +31,7 @@ create_mangle_prerouting_chain() {
     if [ "${ipv6}" = "true" ] ; then
         ${ip6tables_wait} -t mangle -N CLASH_PRE
 
-        for subnet in ${reserved_ip6[*]} ; do
+        for subnet in ${reserved_ip6} ; do
             ${ip6tables_wait} -t mangle -A CLASH_PRE -d ${subnet} -j ACCEPT
         done
 
@@ -72,24 +69,24 @@ create_mangle_output_filter() {
 
     ${iptables_wait} -t mangle -N FILTER_OUT_CLASH
 
-    if [ "${Clash_enhanced_mode}" == "fake-ip" ]; then
+    if [ "${Clash_enhanced_mode}" = "fake-ip" ]; then
         mode="blacklist"
     fi
     apps=`cat ${appuid_file} | sort -u`
     
-    if [ "${mode}" == "global" ];then
+    if [ "${mode}" = "global" ];then
         mode="blacklist"
         apps=""
     fi
     if [ "${mode}" = "blacklist" ] ; then
-        for appuid in  ${apps} ; do
-            ${iptables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j ACCEPT
+        for appuid in ${apps} ; do
+            [ -n "${appuid}" ] && ${iptables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j ACCEPT
         done
 
         ${iptables_wait} -t mangle -A FILTER_OUT_CLASH -m owner ! --gid-owner ${Clash_group} -j CLASH_OUT
     elif [ "${mode}" = "whitelist" ] ; then
-        for appuid in  ${apps} ; do
-            ${iptables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j CLASH_OUT
+        for appuid in ${apps} ; do
+            [ -n "${appuid}" ] && ${iptables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j CLASH_OUT
          done
     fi
 
@@ -97,14 +94,14 @@ create_mangle_output_filter() {
         ${ip6tables_wait} -t mangle -N FILTER_OUT_CLASH
 
         if [ "${mode}" = "blacklist" ] ; then
-           for appuid in  ${apps} ; do
-                ${ip6tables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j ACCEPT
+           for appuid in ${apps} ; do
+                [ -n "${appuid}" ] && ${ip6tables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j ACCEPT
             done
 
            ${ip6tables_wait} -t mangle -A FILTER_OUT_CLASH -m owner ! --gid-owner ${Clash_group} -j CLASH_OUT
         elif [ "${mode}" = "whitelist" ] ; then
-            for appuid in  ${apps} ; do
-                ${ip6tables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j CLASH_OUT
+            for appuid in ${apps} ; do
+                [ -n "${appuid}" ] && ${ip6tables_wait} -t mangle -A FILTER_OUT_CLASH -m owner --uid-owner ${appuid} -j CLASH_OUT
             done
         fi
     fi
@@ -301,7 +298,7 @@ set_tun(){
 
     ${iptables_wait} -t mangle -N CLASH_PRE
     
-    for subnet in ${reserved_ip[*]} ; do
+    for subnet in ${reserved_ip} ; do
         ${iptables_wait} -t mangle -A CLASH_PRE -d ${subnet} -j RETURN
     done
     
@@ -341,8 +338,8 @@ set_tun(){
 
         ${ip6tables_wait} -t mangle -N CLASH_PRE
 
-        for subnet in ${reserved_ip6[*]} ; do
-            ${ip6tables_wait} -t mangle -A CLASH_PRE -d ${subnet} -j RETURN
+        for subnet in ${reserved_ip} ; do
+            ${iptables_wait} -t mangle -A CLASH_PRE -d ${subnet} -j RETURN
         done
 
         ${ip6tables_wait} -t mangle -A CLASH_PRE -j MARK --set-xmark ${mark_id}

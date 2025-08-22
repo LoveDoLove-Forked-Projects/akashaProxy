@@ -1,5 +1,3 @@
-#!/system/bin/sh
-
 MIN_KSU_VERSION=11563
 MIN_KSUD_VERSION=11563
 MIN_MAGISK_VERSION=26402
@@ -85,10 +83,15 @@ ui_print "- 开始设置权限."
 set_perm_recursive ${MODPATH} 0 0 0770 0770
 set_perm_recursive ${clash_data_dir} ${system_uid} ${system_gid} 0770 0770
 set_perm_recursive ${clash_data_dir}/scripts ${system_uid} ${system_gid} 0770 0770
+set_perm_recursive ${clash_data_dir}/mosdns ${system_uid} ${system_gid} 0770 0770
+set_perm_recursive ${clash_data_dir}/adguard ${system_uid} ${system_gid} 0770 0770
 set_perm_recursive ${clash_data_dir}/tools ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/clashkernel ${system_uid} ${system_gid} 6775 6755
-set_perm  ${clash_data_dir}/clashkernel/mihomo  ${system_uid}  ${system_gid}  6755
-
+set_perm_recursive ${clash_data_dir}/clashkernel ${system_uid} ${system_gid} 6770 6770
+set_perm  ${clash_data_dir}/mosdns/mosdns  ${system_uid}  ${system_gid}  6770
+set_perm  ${clash_data_dir}/adguard/AdGuardHome  ${system_uid}  ${system_gid}  6770
+set_perm  ${clash_data_dir}/clashkernel/clashMeta  ${system_uid}  ${system_gid}  6770
+set_perm  ${clash_data_dir}/clash.config ${system_uid} ${system_gid} 0770
+set_perm  ${clash_data_dir}/packages.list ${system_uid} ${system_gid} 0770
 
 
 ui_print "
