@@ -19,14 +19,8 @@ update_file() {
     fi
 }
 edit_tun() {
-    uidlist=""
-    ip4list=""
-    ip6list=""
-    
     if [ "${Clash_auto_route}" != "true" ];then
-        addition="auto-route: true"
-    else
-        addition=""
+        yamlcli -f ${temporary_config_file} set "tun.auto-route" true
     fi
     
     if [ "${mode}" != "global" ]; then
@@ -34,14 +28,20 @@ edit_tun() {
 
         for appuid in ${apps} ; do
             if [ "$(echo ${appuid} | grep ":")" ] && [ "$(echo ${appuid} | grep "[0-9].*\.")" ];then
-                iplist="${iplist}\n    - ${appuid}"
+                if [ -z "${iplist}" ];then
+                    iplist="${appuid}"
+                else
+                    iplist="${iplist},${appuid}"
+                fi
                 continue
             fi
-            if [ "$(grep ${appuid} ${system_packages_file})" = "" ];then
-                log "warn: ${appuid}未找到."
-                continue
+
+            if [ -z "${uidlist}" ];then
+                uidlist="${appuid}"
+            else
+                uidlist="${uidlist},${appuid}"
             fi
-            uidlist="${uidlist}\n    - ${appuid}"
+
             if [ "${mode}" = "blacklist" ]; then
                 log "info: ${appuid}已排除."
             else
@@ -51,23 +51,23 @@ edit_tun() {
         
         if [ "${mode}" = "blacklist" ]; then
             if [ "${uidlist}" != "" ]; then
-                uid="\n  exclude-package:${uidlist}"
+                yamlcli -f ${temporary_config_file} set "tun.exclude-package" "[${uidlist}]"
             fi
+
             if [ "${iplist}" != "" ]; then
-                ipline="\n  route-address:${iplist}"
+                yamlcli -f ${temporary_config_file} set "tun.route-exclude-address" "[${iplist}]"
             fi
         elif [ "${mode}" = "whitelist" ] ; then
             if [ "${uidlist}" != "" ]; then
-                uid="\n  include-package:${uidlist}"
+                yamlcli -f ${temporary_config_file} set "tun.include-package" "[${uidlist}]"
             fi
+
             if [ "${iplist}" != "" ]; then
-                ipline="\n  inet4-route-address:${iplist}"
+                yamlcli -f ${temporary_config_file} set "tun.route-address" "[${iplist}]"
             fi
         fi
-        addition="${addition}${uid}${ipline}"
     fi
-    sed -i "${Clash_tun_line}a\  ${addition}" ${temporary_config_file}
-    log "info: 已自动覆写clash配置"
+    log "info: 已自动覆写运行配置"
 }
 
 start_clash() {
@@ -176,13 +176,7 @@ start_clash() {
             echo "*/1 * * * * ${com}" >> ${Clash_run_path}/root && log "info: 自动绕过本地ip段已打开."
         fi
     else
-        if [ ${Clash_bin_name} = "clashMeta" ];then
-            log "err: ${Clash_bin_name}内核丢失 正在更新..."
-            ${scripts_dir}/clash.tool -u
-            start_clash
-        else
-            log "err: ${Clash_bin_name}内核丢失."
-        fi
+        log "err: ${Clash_bin_name}内核丢失 正在更新..."
         exit 1
     fi
     

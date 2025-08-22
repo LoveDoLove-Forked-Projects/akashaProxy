@@ -218,7 +218,7 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
   // Get clash version
   if (clashFileName) {
     try {
-      let cmd = `"${CLASH_PATH}/clashkernel/${clashFileName}" -v`;
+      let cmd = `"${CLASH_PATH}/kernel/${clashFileName}" -v`;
       let process = await exec(cmd);
       if (process.errno != 0) {
         throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
@@ -242,7 +242,7 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
       }
       let pid = process.stdout.trim();
       // check if pid is running
-      let getExeProcess = await exec(`test $(realpath /proc/${pid}/exe) == $(realpath "${CLASH_PATH}/clashkernel/${clashFileName}") || exit 1`);
+      let getExeProcess = await exec(`test $(realpath /proc/${pid}/exe) == $(realpath "${CLASH_PATH}/kernel/${clashFileName}") || exit 1`);
       if (getExeProcess.errno == 0) {
         running = true;
         resultInfo.daemon = parseInt(pid);

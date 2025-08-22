@@ -28,28 +28,49 @@ fi
 system_gid="1000"
 system_uid="1000"
 clash_data_dir="/data/clash"
-ABI=$(getprop ro.product.cpu.abi)
 mkdir -p ${clash_data_dir}/run
-mkdir -p ${clash_data_dir}/clashkernel
+mkdir -p ${clash_data_dir}/kernel
 
-[ -f ${clash_data_dir}/clashkernel/ClashMeta ] && rm -rf ${clash_data_dir}/clashkernel/ClashMeta
-if [ ! -f ${clash_data_dir}/clashkernel/mihomo ];then
+[ -d ${clash_data_dir}/clashkernel ] && rm -rf ${clash_data_dir}/clashkernel
+
+case $(getprop ro.product.cpu.abi) in
+    "arm64-v8a")
+        ABI="arm64-v8"
+        ;;
+    "armeabi-v7a")
+        ABI="armv7"
+        ;;
+    "x86")
+        ABI="386"
+        ;;
+    "x86_64")
+        ABI="amd64"
+        ;;
+    ?)
+        ABI="arm64-v8"
+        ui_print "- 未知的架构: $(getprop ro.product.cpu.abi) 使用默认架构: arm64-v8"
+        ;;
+esac
+
+if [ ! -f ${clash_data_dir}/kernel/mihomo ];then
     unzip -o "$ZIPFILE" 'bin/*' -d "$TMPDIR" >&2
-    if [ -f "${MODPATH}/bin/clashMeta-android-${ABI}.gz" ];then
-        ui_print "- 正在解压 clashMeta 内核..."
-        gunzip -f ${MODPATH}/bin/clashMeta-android-${ABI}.gz
-        mv -f ${MODPATH}/bin/clashMeta-android-${ABI} ${clash_data_dir}/clashkernel/mihomo
+    if [ -f "${MODPATH}/bin/mihomo-android-${ABI}.gz" ];then
+        ui_print "- 正在解压 mihomo 内核..."
+        gunzip -f ${MODPATH}/bin/mihomo-android-${ABI}.gz
+        mv -f ${MODPATH}/bin/mihomo-android-${ABI} ${clash_data_dir}/kernel/mihomo
     else
-        abort "未找到架构: ${ABI} 请自行前往 GitHub 项目地址下载 → https://github.com/MetaCubeX/mihomo/releases"
+        abort "- 在模块中未找到架构: ${ABI} 请自行下载对应架构的mihomo → https://github.com/MetaCubeX/mihomo/releases"
     fi
 fi
 
 unzip -o "${ZIPFILE}" -x 'META-INF/*' -d ${MODPATH} >&2
 unzip -o "${ZIPFILE}" -x 'clash/*' -d ${MODPATH} >&2
 
+
 if [ -d "${clash_data_dir}" ];then
     rm -rf ${MODPATH}/clash/config.yaml.example
 fi
+
 
 if [ -f "${clash_data_dir}/packages.list" ];then
         ui_print "- packages.list 文件已存在 跳过覆盖."
@@ -77,19 +98,15 @@ cp -Rvf ${MODPATH}/clash/* ${clash_data_dir}/
 rm -rf ${MODPATH}/clash
 rm -rf ${MODPATH}/apk
 rm -rf ${MODPATH}/bin
-rm -rf ${MODPATH}/clashkernel
+rm -rf ${MODPATH}/kernel
 
 ui_print "- 开始设置权限."
 set_perm_recursive ${MODPATH} 0 0 0770 0770
 set_perm_recursive ${clash_data_dir} ${system_uid} ${system_gid} 0770 0770
 set_perm_recursive ${clash_data_dir}/scripts ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/mosdns ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/adguard ${system_uid} ${system_gid} 0770 0770
 set_perm_recursive ${clash_data_dir}/tools ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/clashkernel ${system_uid} ${system_gid} 6770 6770
-set_perm  ${clash_data_dir}/mosdns/mosdns  ${system_uid}  ${system_gid}  6770
-set_perm  ${clash_data_dir}/adguard/AdGuardHome  ${system_uid}  ${system_gid}  6770
-set_perm  ${clash_data_dir}/clashkernel/clashMeta  ${system_uid}  ${system_gid}  6770
+set_perm_recursive ${clash_data_dir}/kernel ${system_uid} ${system_gid} 6770 6770
+set_perm  ${clash_data_dir}/kernel/mihomo  ${system_uid}  ${system_gid}  6770
 set_perm  ${clash_data_dir}/clash.config ${system_uid} ${system_gid} 0770
 set_perm  ${clash_data_dir}/packages.list ${system_uid} ${system_gid} 0770
 

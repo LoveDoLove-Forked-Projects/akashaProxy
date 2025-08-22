@@ -98,30 +98,30 @@ keep_dns() {
 
 upgrade_clash() {
     log "正在下载 ${Clash_bin_name} 内核..."
-    mkdir -p ${Clash_data_dir}/clashkernel/temp
+    mkdir -p ${Clash_data_dir}/kernel/temp
     remote_clash_ver=$1
     specific_clash_filename="mihomo-android-${ABI}-${remote_clash_ver}"
     if [ "${alpha}" = "true" ];then
-        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/${specific_clash_filename}.gz"
+        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/kernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/download/Prerelease-Alpha/${specific_clash_filename}.gz"
     else
-        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/clashkernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/latest/download/${specific_clash_filename}.gz"
+        curl --connect-timeout 5 -Ls -o ${Clash_data_dir}/kernel/temp/mihomo.gz "${ghproxy}https://github.com/MetaCubeX/mihomo/releases/latest/download/${specific_clash_filename}.gz"
     fi
 
-    if [ -f ${Clash_data_dir}/clashkernel/temp/mihomo.gz ];then
-        busybox gunzip -f ${Clash_data_dir}/clashkernel/temp/mihomo.gz
-        if [ -f ${Clash_data_dir}/clashkernel/temp/mihomo ];then
-            rm -f ${Clash_data_dir}/clashkernel/mihomo
-            mv ${Clash_data_dir}/clashkernel/temp/mihomo ${Clash_data_dir}/clashkernel/
-            rm -rf ${Clash_data_dir}/clashkernel/temp
-            chmod +x ${Clash_data_dir}/clashkernel/mihomo
+    if [ -f ${Clash_data_dir}/kernel/temp/mihomo.gz ];then
+        busybox gunzip -f ${Clash_data_dir}/kernel/temp/mihomo.gz
+        if [ -f ${Clash_data_dir}/kernel/temp/mihomo ];then
+            rm -f ${Clash_data_dir}/kernel/mihomo
+            mv ${Clash_data_dir}/kernel/temp/mihomo ${Clash_data_dir}/kernel/
+            rm -rf ${Clash_data_dir}/kernel/temp
+            chmod +x ${Clash_data_dir}/kernel/mihomo
             log "info: 更新完成"
         else
-            rm -rf ${Clash_data_dir}/clashkernel/temp
+            rm -rf ${Clash_data_dir}/kernel/temp
             log "err: 更新失败, 请自行前往 GitHub 项目地址下载 → https://github.com/MetaCubeX/mihomo/releases"
             return
         fi
     else
-        rm -rf ${Clash_data_dir}/clashkernel/temp
+        rm -rf ${Clash_data_dir}/kernel/temp
         log "err: 更新失败, 请自行前往 GitHub 项目地址下载 → https://github.com/MetaCubeX/mihomo/releases"
         return
     fi
