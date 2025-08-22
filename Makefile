@@ -10,11 +10,9 @@ default: check-deps clean pack
 check-deps:
 	@command -v curl >/dev/null 2>&1 || { echo >&2 "[ERROR] curl is not installed. Please install curl."; exit 1; }
 	@command -v unzip >/dev/null 2>&1 || { echo >&2 "[ERROR] unzip is not installed. Please install unzip."; exit 1; }
-	@command -v yarn >/dev/null 2>&1 || { echo >&2 "[ERROR] yarn is not installed. Please install yarn."; exit 1; }
 	@command -v pnpm >/dev/null 2>&1 || { echo >&2 "[ERROR] pnpm is not installed. Please install pnpm."; exit 1; }
 	@command -v go >/dev/null 2>&1 || { echo >&2 "[ERROR] go is not installed. Please install go."; exit 1; }
 	@command -v upx >/dev/null 2>&1 || { echo >&2 "[ERROR] upx is not installed. Please install upx."; exit 1; }
-
 
 pack: download-mihomo download-dashboard build-tools build-webui
 	echo "id=Clash_For_Magisk\nname=akashaProxy\nversion="$(shell git rev-parse --short HEAD)"\nversionCode="$(shell git log -1 --format=%ct)"\nauthor=heinu\ndescription=akasha terminal transparent proxy module that supports tproxy and tun and adds many easy-to-use features. Compatible with Magisk/KernelSU">module/module.prop
@@ -45,6 +43,7 @@ build-webui:
 	@echo "webui build successfully"
 
 build-tools:
+	cd yamlcli && go mod tidy
 	cd yamlcli && CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -trimpath -ldflags="-s -w" -buildvcs=false -o ../module/clash/bin/yamlcli
 	upx module/clash/bin/yamlcli
 	@echo "yamlcli build successfully"
