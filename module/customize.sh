@@ -81,7 +81,7 @@ if [ -f "${clash_data_dir}/clash.config" ];then
     mode=$(grep -i "^mode" ${clash_data_dir}/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
     oldVersion=$(grep -i "version" ${clash_data_dir}/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
     newVersion=$(grep -i "version" ${MODPATH}/clash/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
-    if [ "${oldVersion}" < "${newVersion}" ] && [ ! "${oldVersion}" == "" ];then
+    if [ "${oldVersion}" -ge "${newVersion}" ] && [ ! "${oldVersion}" == "" ];then
         ui_print "- clash.config 文件已存在 跳过覆盖."
         rm -rf ${MODPATH}/clash/clash.config
     else
@@ -118,7 +118,7 @@ ui_print "
 2. 知道如何使用搜索引擎
 3. 拥有阅读官方文档的能力
 4. 拥有基础的Linux知识
-4. 乐于折腾
+5. 乐于折腾
 
 > 否则不建议您使用本模块
 
