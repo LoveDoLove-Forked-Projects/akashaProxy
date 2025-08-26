@@ -127,5 +127,5 @@ ui_print "
 预设配置文件在 /data/clash/config.yaml.example
 请重命名为 config.yaml 后使用DashBoard启动/停止 或者使用tools文件夹下的start.sh/stop.sh
 ************************************************
-Telegram Channel: https://t.me/akashaProxy
+Telegram Channel: https://t.me/akashaProxyci
 "
