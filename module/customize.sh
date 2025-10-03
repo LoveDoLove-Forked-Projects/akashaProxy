@@ -2,7 +2,7 @@ MIN_KSU_VERSION=11563
 MIN_KSUD_VERSION=11563
 MIN_MAGISK_VERSION=26402
 
-[ -d "/data/adb/modules/Clash_For_Magisk" ] || abort "- 先卸载旧版本模块 Clash_For_Magisk"
+[ -d "/data/adb/modules/Clash_For_Magisk" ] && rm -rf /data/adb/modules/Clash_For_Magisk
 
 if [ ! $KSU ];then
     ui_print "- Magisk ver: $MAGISK_VER"
