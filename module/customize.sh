@@ -2,6 +2,8 @@ MIN_KSU_VERSION=11563
 MIN_KSUD_VERSION=11563
 MIN_MAGISK_VERSION=26402
 
+[ -d "/data/adb/modules/Clash_For_Magisk" ] || abort "- 先卸载旧版本模块 Clash_For_Magisk"
+
 if [ ! $KSU ];then
     ui_print "- Magisk ver: $MAGISK_VER"
     ui_print "- Magisk version: $MAGISK_VER_CODE"
@@ -28,10 +30,11 @@ fi
 system_gid="1000"
 system_uid="1000"
 data_dir="/data/clash"
+
 [ -d ${data_dir}/run ] || mkdir -p ${data_dir}/run
 [ -d ${data_dir}/kernel ] || mkdir -p ${data_dir}/kernel
-
 [ -d ${data_dir}/clashkernel ] && rm -rf ${data_dir}/clashkernel
+
 
 if [ -f ${data_dir}/kernel/mihomo ];then
     ui_print "- 模块已安装,跳过内核安装"
@@ -95,9 +98,7 @@ if [ -f "${data_dir}/clash.config" ];then
     fi
 fi
 
-if [ "$(pm list packages | grep com.dashboard.kotlin)" == ""];then
-    pm install -r ${MODPATH}/apk/DashBoard.apk
-fi
+pm install -r ${MODPATH}/apk/DashBoard.apk
 
 cp -Rvf ${MODPATH}/src/* ${data_dir}/
 rm -rf ${MODPATH}/src
