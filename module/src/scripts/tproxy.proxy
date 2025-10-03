@@ -32,6 +32,9 @@ set_tproxy() {
         iptables_wait -t nat -A DNS_PRE -p tcp --dport 53 -j REDIRECT --to-ports "${dns_port}"
     fi
 
+    iptables_wait -t mangle -A KERNEL_PRE -p tcp --dport 53 -j RETURN
+    iptables_wait -t mangle -A KERNEL_PRE -p udp --dport 53 -j RETURN
+
     for ip in ${reserved_ip} ; do
         iptables_wait -t nat -A DNS_PRE -d "${ip}" -j RETURN
         iptables_wait -t mangle -A KERNEL_PRE -d "${ip}" -j RETURN
@@ -55,8 +58,9 @@ set_tproxy() {
         iptables_wait -t mangle -A KERNEL_PRE -p udp -i "$ap" -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}"
     fi
 
-    iptables_wait -t nat -A PREROUTING -j DNS_PRE
     iptables_wait -t mangle -A PREROUTING -j KERNEL_PRE
+    iptables_wait -t nat -A PREROUTING -j DNS_PRE
+    
 
     # 处理OUTPUT链
     iptables_wait -t nat -N DNS_OUTPUT
@@ -134,8 +138,8 @@ set_tproxy() {
         iptables_wait -t mangle -A KERNEL_OUT -p udp -j RETURN
     fi
 
-    iptables_wait -t nat -A OUTPUT -j DNS_OUTPUT
     iptables_wait -t mangle -A OUTPUT -j KERNEL_OUT
+    iptables_wait -t nat -A OUTPUT -j DNS_OUTPUT
 
     iptables_wait -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
     iptables_wait -A OUTPUT -d ::1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT

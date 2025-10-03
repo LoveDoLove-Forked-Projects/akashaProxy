@@ -206,7 +206,7 @@ async function updateInfo(setMihomoInfo: (callback: (info: MihomoInfo) => Mihomo
   // Get mihomo file name
   let fileName = null;
   try {
-    let cmd = `source ${MIHOMO_PATH}/clash.config && printf "%s" $Mihomo_bin_name`;
+    let cmd = `source ${MIHOMO_PATH}/clash.config && printf "%s" $bin_name`;
     let process = await exec(cmd);
     if (process.errno != 0) {
       throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
@@ -247,6 +247,7 @@ async function updateInfo(setMihomoInfo: (callback: (info: MihomoInfo) => Mihomo
         running = true;
         resultInfo.daemon = parseInt(pid);
       }
+      
     } catch (err) {
       console.error(err);
     }
