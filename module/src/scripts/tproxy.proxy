@@ -23,8 +23,8 @@ set_tproxy() {
     iptables_wait -t mangle -F KERNEL_PRE
 
     # 跳过TProxy已处理的流量(感谢box4magisk)
-    iptables_wait -t mangle -A PREROUTING -p tcp -m socket --transparent -j MARK --set-xmark ${mark_id}
-    iptables_wait -t mangle -A PREROUTING -p udp -m socket --transparent -j MARK --set-xmark ${mark_id}
+    iptables_wait -t mangle -A PREROUTING -p tcp -m socket --transparent -j MARK --set-xmark ${mark_id} || log "warn: [PREROUTING] 当前内核可能不支持tcp socket match模块"
+    iptables_wait -t mangle -A PREROUTING -p udp -m socket --transparent -j MARK --set-xmark ${mark_id} || log "warn: [PREROUTING] 当前内核可能不支持udp socket match模块"
     iptables_wait -t mangle -A PREROUTING -m socket -j RETURN
 
     if [ "${dns_status}" = "true" ]; then
@@ -48,8 +48,8 @@ set_tproxy() {
     fi
 
     # 透明代理流量到核心
-    iptables_wait -t mangle -A KERNEL_PRE -p tcp -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}"
-    iptables_wait -t mangle -A KERNEL_PRE -p udp -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}"
+    iptables_wait -t mangle -A KERNEL_PRE -p tcp -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}" || log "warn: [KERNEL_PRE] 当前内核可能不支持tcp tproxy"
+    iptables_wait -t mangle -A KERNEL_PRE -p udp -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}" || log "warn: [KERNEL_PRE] 当前内核可能不支持udp tproxy"
 
 
     ap="$(get_ap_interfaces 2>/dev/null | head -n1)"
@@ -124,8 +124,8 @@ set_tproxy() {
                     iptables_wait -t nat -A DNS_OUTPUT -p udp -m owner --uid-owner ${appuid} --dport 53 -j REDIRECT --to-ports ${dns_port}
                 fi
 
-                iptables_wait -t mangle -A KERNEL_OUT -p tcp -m owner --uid-owner ${appuid} -j MARK --set-xmark ${mark_id}
-                iptables_wait -t mangle -A KERNEL_OUT -p udp -m owner --uid-owner ${appuid} -j MARK --set-xmark ${mark_id}
+                iptables_wait -t mangle -A KERNEL_OUT -p tcp -m owner --uid-owner ${appuid} -j MARK --set-xmark ${mark_id} || log "warn: [KERNEL_OUT] 当前内核可能不支持tcp mark模块"
+                iptables_wait -t mangle -A KERNEL_OUT -p udp -m owner --uid-owner ${appuid} -j MARK --set-xmark ${mark_id} || log "warn: [KERNEL_OUT] 当前内核可能不支持udp mark模块"
             fi
         done
         
