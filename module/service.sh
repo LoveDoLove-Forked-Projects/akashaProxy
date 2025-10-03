@@ -1,3 +1,11 @@
+until [ "$(getprop sys.boot_completed)" = "1" ]; do
+    sleep 2
+done
+
+until [ -d "/sdcard/Android" ]; do
+    sleep 2
+done
+
 chmod -R 770 /data/clash
 chown -R root:root /data/clash
 
