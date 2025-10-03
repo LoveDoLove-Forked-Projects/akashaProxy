@@ -93,7 +93,7 @@ jobs:
       with:
           tag_name: ${{ github.ref_name }}
           files: akashaProxy.zip
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
           prerelease: true
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
