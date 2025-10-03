@@ -1,0 +1,140 @@
+[ -z "$version" ] && . /data/clash/clash.config
+
+get_ap_interfaces() {
+    ifaces=""
+    if command -v dumpsys >/dev/null 2>&1; then
+        iface=$(iw dev 2>/dev/null | awk '/Interface/ {name=$2} /type AP/ {print name}')
+    fi
+    if command -v dumpsys >/dev/null 2>&1; then
+        ifaces=$(dumpsys tethering 2>/dev/null | awk -F'[][]' '/Tethered|tethered interfaces/{print $2}')
+        if [ -n "$ifaces" ]; then
+            echo "$ifaces" | tr ' ' '\n' | sed '/^$/d'
+            return 0
+        fi
+        
+        ifaces=$(dumpsys connectivity 2>/dev/null | awk -F'[][]' '/Tethering|Tethered/{print $2}')
+        if [ -n "$ifaces" ]; then
+            echo "$ifaces" | tr ' ' '\n' | sed '/^$/d'
+            return 0
+        fi
+    fi
+    for i in ap0 softap0 wlan1 wlan2; do
+        if ifconfig | grep -q "^$i"; then
+            echo "$i"
+            return 0
+        fi
+    done
+    for i in $(ifconfig | grep -oE '^wlan[0-9]+'); do
+        [ "$i" = "wlan0" ] && continue
+        echo "$i"
+        return 0
+    done
+}
+
+start_iptables() {
+    if [ "${mode}" = "socks" ] && [ "${tun_status}" = "true" ];then
+        log "warn: 当socks模式下不可开启Tun."
+        yamlcli -f ${temporary_config_file} set "tun.enable" false
+        log "warn: 以修改运行时配置文件中的tun.enable为false."
+        return 0
+    fi
+    
+    if [ "${mode}" = "socks" ];then
+        log "info: 当前为:socks模式."
+        return 0
+    fi
+
+    if [ "${mode}" = "blacklist" ] || [ "${mode}" = "whitelist" ] || [ "${mode}" = "global" ] ; then
+        
+        if [ "${tun_status}" = "true" ]; then
+
+            log "info: 当前为:Tun模式."
+            if [ "${auto_route}" = "true" ]; then
+                  
+                iptables_wait -I FORWARD -o ${tun_device} -j ACCEPT
+                iptables_wait -I FORWARD -i ${tun_device} -j ACCEPT
+                log "info: auto_route已开启核心自动处理路由."
+            else
+                ${scripts_dir}/tun.proxy -s
+                log "info: Tun规则应用成功."
+            fi
+            return 0
+        else
+            if [ "${support_tproxy}" != "true" ]; then
+                log "warn: 当前内核不支持TProxy,已切换至redirect."
+                ${scripts_dir}/redirect.proxy -s
+                log "info: Redirect规则应用成功."
+            else
+                ${scripts_dir}/tproxy.proxy -s
+                log "info: TProxy规则应用成功."
+            fi
+            return 0
+        fi
+    else
+        log "error: 未知模式."
+        return 1
+    fi
+}
+
+
+stop_iptables() {
+    if [ "${mode}" = "socks" ] && [ "${tun_status}" = "true" ];then
+        log "warn: 当socks模式下不可开启Tun."
+        yamlcli -f ${temporary_config_file} set "tun.enable" false
+        log "warn: 以修改运行时配置文件中的tun.enable为false."
+        return 0
+    fi
+    
+    if [ "${mode}" = "socks" ];then
+        log "info: 当前为:socks模式."
+        return 0
+    fi
+
+    if [ "${mode}" = "blacklist" ] || [ "${mode}" = "whitelist" ] || [ "${mode}" = "global" ] ; then
+        
+        if [ "${tun_status}" = "true" ]; then
+
+            log "info: 当前为:Tun模式."
+            if [ "${auto_route}" = "true" ]; then
+                  
+                iptables_wait -D FORWARD -o ${tun_device} -j ACCEPT
+                iptables_wait -D FORWARD -i ${tun_device} -j ACCEPT
+                log "info: auto_route已关闭核心自动处理路由."
+            else
+                ${scripts_dir}/tun.proxy -k
+                log "info: Tun规则移除成功."
+            fi
+            return 0
+        else
+            if [ "${support_tproxy}" != "true" ]; then
+                log "warn: 当前内核不支持TProxy,已切换至redirect."
+                ${scripts_dir}/redirect.proxy -k
+                log "info: Redirect规则移除成功."
+            else
+                ${scripts_dir}/tproxy.proxy -k
+                log "info: TProxy规则移除成功."
+            fi
+            return 0
+        fi
+    else
+        log "error: 未知模式."
+        return 1
+    fi
+}
+
+
+
+
+while getopts ":sk" signal ; do
+    case ${signal} in
+        s)
+            start_iptables
+            ;;
+        k)
+            stop_iptables
+            ;;
+        ?)
+            echo ""
+            ;;
+    esac
+done

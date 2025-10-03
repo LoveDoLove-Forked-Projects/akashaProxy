@@ -1,7 +1,8 @@
 akashaProxy*.zip
 module/module.prop
 module/bin/*
-module/clash/zashboard
+module/src/zashboard
 module/webroot
 node_modules
-module/clash/bin/yamlcli
+module/src/bin/yamlcli
+module/.update

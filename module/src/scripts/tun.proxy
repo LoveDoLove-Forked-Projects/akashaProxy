@@ -1,0 +1,98 @@
+[ -z "$version" ] && . /data/clash/clash.config
+
+set_tun(){
+    ip -4 rule add fwmark ${mark_id} table ${table_id} pref ${pref_id}
+    while [ "$(ip -4 route show table ${table_id} 2> /dev/null)" == "" ]
+    do
+        ip -4 route add default dev ${tun_device} table ${table_id}
+    done
+
+    iptables_wait -A FORWARD -o ${tun_device} -j ACCEPT
+    iptables_wait -A FORWARD -i ${tun_device} -j ACCEPT
+
+    iptables_wait -t mangle -N KERNEL_PRE
+
+    iptables_wait -t mangle -A KERNEL_PRE -j MARK --set-xmark ${mark_id}
+    iptables_wait -t mangle -A PREROUTING -j KERNEL_PRE
+
+
+    iptables_wait -t mangle -N KERNEL_OUT
+    iptables_wait -t mangle -A KERNEL_OUT -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -j RETURN
+
+    ${scripts_dir}/clash.tool -f # 刷新appuid_file
+
+    if [ "${kernel_enhanced_mode}" = "fake-ip" ]; then
+        mode="blacklist"
+    fi
+
+    if [ -f "${appuid_file}" ]; then
+        apps=$(cat "${appuid_file}" | sort -u)
+    else
+        log "warn: ${appuid_file} 文件不存在 无法进行app分流"
+        apps=""
+    fi
+
+    
+    if [ "${mode}" = "global" ];then
+        mode="blacklist"
+        apps=""
+    fi
+
+    if [ "${mode}" = "blacklist" ] ; then
+        for appuid in ${apps} ; do
+            if [ -n "${appuid}" ]; then
+                iptables_wait -t mangle -A KERNEL_OUT -m owner --uid-owner ${appuid} -j RETURN
+            fi  
+        done
+        iptables_wait -t mangle -A KERNEL_OUT -j MARK --set-xmark ${mark_id}
+
+    elif [ "${mode}" = "whitelist" ] ; then
+
+        for appuid in  ${apps} ; do
+            if [ -n "${appuid}" ]; then
+                iptables_wait -t mangle -A KERNEL_OUT -m owner --uid-owner ${appuid} -j MARK --set-xmark ${mark_id}
+            fi
+        done
+    fi
+
+    iptables_wait -t mangle -A OUTPUT -j KERNEL_OUT
+
+    if [ "${ipv6}" = "false" ] ; then
+        echo 1 > /proc/sys/net/ipv6/conf/${tun_device}/disable_ipv6
+    fi
+}
+
+del_tun(){
+    ip -4 rule del fwmark ${mark_id} lookup ${table_id}
+    ip -4 route del default dev ${tun_device} table ${table_id}
+
+    iptables_wait -D FORWARD -o ${tun_device} -j ACCEPT	
+	iptables_wait -D FORWARD -i ${tun_device} -j ACCEPT
+
+    iptables_wait -t mangle -D OUTPUT -j KERNEL_OUT
+    iptables_wait -t mangle -F KERNEL_OUT
+    iptables_wait -t mangle -X KERNEL_OUT
+
+    iptables_wait -t mangle -D PREROUTING -j KERNEL_PRE
+    iptables_wait -t mangle -F KERNEL_PRE
+    iptables_wait -t mangle -X KERNEL_PRE
+
+    if [ "${ipv6}" = "true" ] ; then
+        ip -6 rule del fwmark ${mark_id} lookup ${table_id}
+        ip -6 route del default dev ${tun_device} table ${table_id}
+    fi
+}
+
+while getopts ":sk" signal ; do
+    case ${signal} in
+        s)
+            set_tun
+            ;;
+        k)
+            del_tun
+            ;;
+        ?)
+            echo ""
+            ;;
+    esac
+done

@@ -1,0 +1,281 @@
+[ -z "$version" ] && . /data/clash/clash.config
+
+update_file() {
+    file="$1"
+    file_temp="${file}.temp"
+    update_url="$2"
+
+    curl -L ${update_url} -o ${file_temp}
+
+    if [ -f "${file_temp}" ]; then
+        mv -f ${file_temp} ${file}
+        log "info: ${file}更新成功."
+    else
+        rm -rf ${file_temp}
+        log "warn: ${file}更新失败"
+        return 1
+    fi
+}
+
+
+
+edit_tun() {
+    if [ "${auto_route}" != "true" ];then
+        yamlcli -f ${temporary_config_file} set "tun.auto-route" true
+    fi
+
+    if [ "${adguardhome} " = "true" ];then
+        log "info: 已启用adguardhome兼容模式"
+        log "info: adguardhome配置文件路径为: ${adguardhome_config_file}"
+    fi
+    
+    if [ "${mode}" != "global" ]; then
+        apps=`cat ${filter_packages_file} | sort -u`
+
+        for appuid in ${apps} ; do
+            if [ "$(echo ${appuid} | grep ":")" ] && [ "$(echo ${appuid} | grep "[0-9].*\.")" ];then
+                if [ -z "${iplist}" ];then
+                    iplist="${appuid}"
+                else
+                    iplist="${iplist},${appuid}"
+                fi
+                continue
+            fi
+
+            if [ -z "${uidlist}" ];then
+                uidlist="${appuid}"
+            else
+                uidlist="${uidlist},${appuid}"
+            fi
+
+            if [ "${mode}" = "blacklist" ]; then
+                log "info: ${appuid}已排除."
+            else
+                log "info: ${appuid}已代理."
+            fi
+        done
+        
+        if [ "${mode}" = "blacklist" ]; then
+            if [ "${uidlist}" != "" ]; then
+                yamlcli -f ${temporary_config_file} set "tun.exclude-package" "[${uidlist}]"
+            fi
+
+            if [ "${iplist}" != "" ]; then
+                yamlcli -f ${temporary_config_file} set "tun.route-exclude-address" "[${iplist}]"
+            fi
+        elif [ "${mode}" = "whitelist" ] ; then
+            if [ "${uidlist}" != "" ]; then
+                yamlcli -f ${temporary_config_file} set "tun.include-package" "[${uidlist}]"
+            fi
+
+            if [ "${iplist}" != "" ]; then
+                yamlcli -f ${temporary_config_file} set "tun.route-address" "[${iplist}]"
+            fi
+        fi
+    fi
+    log "info: 已自动覆写运行配置"
+}
+
+start_service() {
+
+    rm -rf ${logs_file}
+    if [ -f "${data_dir}/clash.example.yaml" ];then
+        log "err: 请将预设配置(clash.example.yaml)重命名为clash.yaml后填写正确配置."
+        exit 1
+    fi
+
+    if [ ! -f ${config_file} ];then
+        log "err: 缺少config.yaml 配置文件."
+        exit 1
+    fi
+
+    mkdir -p ${run_path}
+    cp -f ${config_file} ${temporary_config_file}
+
+    if [ "${disable_ipv6}" = "true" ]; then
+        echo "1" > /proc/sys/net/ipv6/conf/all/disable_ipv6
+    else
+        echo "0" > /proc/sys/net/ipv6/conf/all/disable_ipv6
+    fi
+
+    if [ "${ipv6}" = "false" ] ; then
+        for net in $(ls -d /proc/sys/net/ipv6/conf/wlan* /proc/sys/net/ipv6/conf/*data* 2>/dev/null); do
+            echo ${net} | grep -q wlan
+            if [ $? -eq 0 ] ; then
+                echo 0 > ${net}/accept_ra
+            fi
+            echo 1 > ${net}/disable_ipv6
+        done
+    else
+        for net in $(ls -d /proc/sys/net/ipv6/conf/wlan* /proc/sys/net/ipv6/conf/*data* 2>/dev/null); do
+            echo ${net} | grep -q wlan
+            if [ $? -eq 0 ] ; then
+                echo 1 > ${net}/accept_ra
+            fi
+            echo 0 > ${net}/disable_ipv6
+        done
+        log "info: 已开启代理ipv6"
+    fi
+
+
+
+    if [ "${udp}" = "true" ] ; then
+        log "info: 已开启代理udp"
+    fi
+
+    pid=`busybox pidof ${kernel_bin}`
+    if (cat /proc/${pid}/cmdline | grep -q ${kernel_bin}) ; then
+        log "info: 检测到${kernel_bin}已启动,此次不启动."
+        exit 1
+    fi
+
+    if [ "${tproxy_port}" = 0 ] || [ "${tproxy_port}" = ""  ]; then
+        if [ "${tun_status}" != "true" ]; then
+            log "err: 未检测到tproxy-port端口,并且tun模式也未开启."
+            log "err: 请检查配置文件中tproxy-port端口是否正确填写或者是否启用tun模式."
+            exit 1
+        fi
+    fi
+
+    if [ -f "${kernel_bin}" ] ; then
+        mkdir -p ${run_path}
+        chown ${kernel_user_group} ${kernel_bin}
+        chmod ${kernel_permissions} ${kernel_bin}
+        chown ${kernel_user_group} ${temporary_config_file}
+        chmod 0644 ${temporary_config_file}
+        rm -rf ${run_path}/root
+        touch ${run_path}/root
+        chmod 777 ${run_path}/root
+        if [ "${Geo_auto_update}" != "true" ];then
+            if [ "${auto_updateGeoSite}" = "true" ]; then
+                echo "${update_geoXInterval} ${scripts_dir}/clash.tool -u" >> ${run_path}/root \
+                && log "info: 自动更新GeoX定时已开启."
+            fi
+        else
+            log "info: 核心已开启自动更新GeoX 模块不进行操作."
+        fi
+        if [ "${auto_updateSubcript}" = "true" ]; then
+            echo "${update_subcriptInterval} ${scripts_dir}/clash.tool -s" >> ${run_path}/root \
+            && log "info: 自动更新订阅定时已开启."
+        fi
+        if [ "${auto_updatemihomo}" = "true" ] || [ "${Geo_auto_update}" != "true" ]; then
+            echo "${update_geoXInterval} ${scripts_dir}/clash.tool -u" >> ${run_path}/root \
+            && log "info: 自动更新内核定时已开启."
+        else
+            log "info: 自动更新内核定时已开启."
+        fi
+
+        sed -i '/^[  ]*$/d' ${logs_file}
+        if [ "${filter_local}" = "true" ] ; then
+            com="${scripts_dir}/clash.tool -m ; sleep 10 ;${scripts_dir}/clash.tool -m ; sleep 10; ${scripts_dir}/clash.tool -m ;sleep 10; ${scripts_dir}/clash.tool -m;sleep 10;${scripts_dir}/clash.tool -m ; sleep 10;${scripts_dir}/clash.tool -m"
+            echo "*/1 * * * * ${com}" >> ${run_path}/root && log "info: 自动绕过本地ip段已打开."
+        fi
+    else
+        log "err: ${bin_name}内核丢失 正在更新..."
+        exit 1
+    fi
+    
+    if [ ${ml} = "true" ];then
+        if [ ! -f ${run_path}/ip.dat ];then
+            log "info: 正在获取免流ip..."
+            baidumlip=$(busybox ping -c 1 cloudnproxy.baidu.com | sed '1{s/[^(]*(//;s/).*//;q}')
+            txmlip=$(busybox ping -c 1 weixin.qq.com | sed '1{s/[^(]*(//;s/).*//;q}')
+            echo "baidumlip=${baidumlip}\ntxmlip=${txmlip}">${run_path}/ip.dat
+        else
+            log "info: 已从缓存文件中获取免流ip"
+            . ${run_path}/ip.dat
+        fi
+        log "info: 当前百度系免流ip:${baidumlip}"
+        log "info: 当前腾讯系免流ip:${txmlip}"
+        sed -i "s/{百度系免流ip}/${baidumlip}/g" ${temporary_config_file}
+        sed -i "s/{腾讯系免流ip}/${txmlip}/g" ${temporary_config_file}
+    fi
+
+    if [ ${proxyGoogle} = "true" ];then
+        if [ ! -f ${run_path}/Google.dat ];then
+            log "info: 正在获取本机所有Google系app..."
+            echo "\n">${run_path}/Google.dat
+            for packages in $(pm list packages |awk -F : '{print$NF}')$(pm list packages -s |awk -F : '{print$NF}')
+            do
+                echo $packages | grep "google">>${run_path}/Google.dat
+                echo $packages | grep "com.android.vending">>${run_path}/Google.dat
+            done
+        else
+            log "info: 已从缓存文件中获取本机所有Google系app"
+        fi
+    fi
+
+    
+    if [ "${tun_status}" = "true" ];then
+        if [ "${auto_config}" = "true" ] && [  "${auto_tun}" = "true" ];then
+            edit_tun
+        fi
+    fi
+    
+    if [ ! -f ${GeoIP_file} ];then
+        log "err: 缺少GeoIP资源文件 正在自动下载."
+        update_file ${GeoIP_file} ${GeoIP_url}
+    fi
+    if [ ! -f ${GeoSite_file} ];then
+        log "err: 缺少GeoSite资源文件 正在自动下载."
+        update_file ${GeoSite_file} ${GeoSite_url}
+    fi
+    kernel_error=$(${kernel_bin} -d ${data_dir} -f ${temporary_config_file} -t)
+    if [ -f ${temporary_config_file} ]; then
+        if $(${kernel_bin} -d ${data_dir} -t -f ${temporary_config_file} > /dev/null) ; then
+            if [ "${tun_status}" = "true" ]; then
+                mkdir -p /dev/net
+                ln -sf /dev/tun /dev/net/tun
+            fi
+            mv /data/clash/run/kernel.log /data/clash/run/kernel.old.log
+            ulimit -SHn 1000000
+            nohup busybox setuidgid ${kernel_user_group} ${kernel_bin} -d ${data_dir} -f ${temporary_config_file} > /data/clash/run/kernel.log 2>&1 &
+
+            log "info: 代理模式:${mode}"
+            log "info: ${bin_name}内核已启动."
+        else
+            log "err: 配置有误，启动失败."
+            log "err: 下面是错误日志"
+            log "err: ${kernel_error}"
+            exit 1
+        fi
+    else
+        log "info: 配置文件合并失败."
+        exit 1
+    fi
+
+
+    if [ "${tun_status}" = "true" ]; then
+        return
+    fi
+    if [ "${port_skipdetection}" = "false" ]; then
+        sleep ${WaitStartTime}
+        if ! (${scripts_dir}/clash.tool -p) ; then
+            kill -15 `busybox pidof ${kernel_bin}`
+            log "err: 端口未检测到,已停止${bin_name}内核以及后续逻辑."
+            exit 1
+        fi
+    else
+    log "info: 已跳过端口检查."
+    fi
+}
+
+stop_service() {
+    rm -rf ${logs_file}
+    [ "$(busybox pidof ${kernel_bin})" ] && kill -15 `busybox pidof ${kernel_bin}`
+    log "info: 已停止${bin_name}内核."
+}
+
+while getopts ":sk" signal ; do
+    case ${signal} in
+        s)
+            start_service
+            ;;
+        k)
+            stop_service
+            ;;
+        ?)
+            echo ""
+            ;;
+    esac
+done

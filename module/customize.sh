@@ -27,66 +27,71 @@ fi
 
 system_gid="1000"
 system_uid="1000"
-clash_data_dir="/data/clash"
-mkdir -p ${clash_data_dir}/run
-mkdir -p ${clash_data_dir}/kernel
+data_dir="/data/clash"
+[ -d ${data_dir}/run ] || mkdir -p ${data_dir}/run
+[ -d ${data_dir}/kernel ] || mkdir -p ${data_dir}/kernel
 
-[ -d ${clash_data_dir}/clashkernel ] && rm -rf ${clash_data_dir}/clashkernel
+[ -d ${data_dir}/clashkernel ] && rm -rf ${data_dir}/clashkernel
 
-case $(getprop ro.product.cpu.abi) in
-    "arm64-v8a")
-        ABI="arm64-v8"
-        ;;
-    "armeabi-v7a")
-        ABI="armv7"
-        ;;
-    "x86")
-        ABI="386"
-        ;;
-    "x86_64")
-        ABI="amd64"
-        ;;
-    ?)
-        ABI="arm64-v8"
-        ui_print "- 未知的架构: $(getprop ro.product.cpu.abi) 使用默认架构: arm64-v8"
-        ;;
-esac
+if [ -f ${data_dir}/kernel/mihomo ];then
+    ui_print "- 模块已安装,跳过内核安装"
+    
+else
+    case $(getprop ro.product.cpu.abi) in
+        "arm64-v8a")
+            ABI="arm64-v8"
+            ;;
+        "armeabi-v7a")
+            ABI="armv7"
+            ;;
+        "x86")
+            ABI="386"
+            ;;
+        "x86_64")
+            ABI="amd64"
+            ;;
+        ?)
+            ABI="arm64-v8"
+            ui_print "- 未知的架构: $(getprop ro.product.cpu.abi) 使用默认架构: arm64-v8"
+            ;;
+    esac
 
-if [ ! -f ${clash_data_dir}/kernel/mihomo ];then
-    unzip -o "$ZIPFILE" 'bin/*' -d "$TMPDIR" >&2
-    if [ -f "${MODPATH}/bin/mihomo-android-${ABI}.gz" ];then
-        ui_print "- 正在解压 mihomo 内核..."
-        gunzip -f ${MODPATH}/bin/mihomo-android-${ABI}.gz
-        mv -f ${MODPATH}/bin/mihomo-android-${ABI} ${clash_data_dir}/kernel/mihomo
-    else
-        abort "- 在模块中未找到架构: ${ABI} 请自行下载对应架构的mihomo → https://github.com/MetaCubeX/mihomo/releases"
+    if [ ! -f ${data_dir}/kernel/mihomo ];then
+        unzip -o "$ZIPFILE" 'bin/*' -d "$TMPDIR" >&2
+        if [ -f "${MODPATH}/bin/mihomo-android-${ABI}.gz" ];then
+            ui_print "- 正在解压 mihomo 内核..."
+            gunzip -f ${MODPATH}/bin/mihomo-android-${ABI}.gz
+            mv -f ${MODPATH}/bin/mihomo-android-${ABI} ${data_dir}/kernel/mihomo
+        else
+            abort "- 在模块中未找到架构: ${ABI} 请自行下载对应架构的mihomo → https://github.com/MetaCubeX/mihomo/releases"
+        fi
     fi
 fi
 
 unzip -o "${ZIPFILE}" -x 'META-INF/*' -d ${MODPATH} >&2
-unzip -o "${ZIPFILE}" -x 'clash/*' -d ${MODPATH} >&2
+unzip -o "${ZIPFILE}" -x 'src/*' -d ${MODPATH} >&2
 
 
-if [ -d "${clash_data_dir}" ];then
-    rm -rf ${MODPATH}/clash/config.yaml.example
+if [ -d "${data_dir}" ];then
+    rm -rf ${MODPATH}/src/config.example.yaml
 fi
 
 
-if [ -f "${clash_data_dir}/packages.list" ];then
+if [ -f "${data_dir}/packages.list" ];then
         ui_print "- packages.list 文件已存在 跳过覆盖."
-        rm -rf ${MODPATH}/clash/packages.list
+        rm -rf ${MODPATH}/src/packages.list
 fi
 
-if [ -f "${clash_data_dir}/clash.config" ];then
-    mode=$(grep -i "^mode" ${clash_data_dir}/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
-    oldVersion=$(grep -i "version" ${clash_data_dir}/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
-    newVersion=$(grep -i "version" ${MODPATH}/clash/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
+if [ -f "${data_dir}/clash.config" ];then
+    mode=$(grep -i "^mode" ${data_dir}/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
+    oldVersion=$(grep -i "version" ${data_dir}/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
+    newVersion=$(grep -i "version" ${MODPATH}/src/clash.config | awk -F '=' '{print $2}' | sed "s/\"//g")
     if [ "${oldVersion}" < "${newVersion}" ] && [ ! "${oldVersion}" == "" ];then
         ui_print "- clash.config 文件已存在 跳过覆盖."
-        rm -rf ${MODPATH}/clash/clash.config
+        rm -rf ${MODPATH}/src/clash.config
     else
-        sed -i "s/global/${mode}/g" ${MODPATH}/clash/clash.config
-        cp -Rvf ${clash_data_dir}/clash.config ${clash_data_dir}/clash.config.old
+        sed -i "s/global/${mode}/g" ${MODPATH}/src/clash.config
+        cp -Rvf ${data_dir}/clash.config ${data_dir}/clash.config.old
     fi
 fi
 
@@ -94,21 +99,21 @@ if [ "$(pm list packages | grep com.dashboard.kotlin)" == ""];then
     pm install -r ${MODPATH}/apk/DashBoard.apk
 fi
 
-cp -Rvf ${MODPATH}/clash/* ${clash_data_dir}/
-rm -rf ${MODPATH}/clash
+cp -Rvf ${MODPATH}/src/* ${data_dir}/
+rm -rf ${MODPATH}/src
 rm -rf ${MODPATH}/apk
 rm -rf ${MODPATH}/bin
 rm -rf ${MODPATH}/kernel
 
 ui_print "- 开始设置权限."
 set_perm_recursive ${MODPATH} 0 0 0770 0770
-set_perm_recursive ${clash_data_dir} ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/scripts ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/tools ${system_uid} ${system_gid} 0770 0770
-set_perm_recursive ${clash_data_dir}/kernel ${system_uid} ${system_gid} 6770 6770
-set_perm  ${clash_data_dir}/kernel/mihomo  ${system_uid}  ${system_gid}  6770
-set_perm  ${clash_data_dir}/clash.config ${system_uid} ${system_gid} 0770
-set_perm  ${clash_data_dir}/packages.list ${system_uid} ${system_gid} 0770
+set_perm_recursive ${data_dir} ${system_uid} ${system_gid} 0770 0770
+set_perm_recursive ${data_dir}/scripts ${system_uid} ${system_gid} 0770 0770
+set_perm_recursive ${data_dir}/tools ${system_uid} ${system_gid} 0770 0770
+set_perm_recursive ${data_dir}/kernel ${system_uid} ${system_gid} 6770 6770
+set_perm  ${data_dir}/kernel/mihomo  ${system_uid}  ${system_gid}  6770
+set_perm  ${data_dir}/clash.config ${system_uid} ${system_gid} 0770
+set_perm  ${data_dir}/packages.list ${system_uid} ${system_gid} 0770
 
 
 ui_print "
@@ -122,10 +127,10 @@ ui_print "
 
 > 否则不建议您使用本模块
 
-如何使用本模块清查阅→https://github.com/ModuleList/akashaProxy
+如何使用本模块清查阅→https://github.com/akashaProxy/akashaProxy
 如何使用mihomo以及配置文件文档清查阅→https://wiki.metacubex.one/config
-预设配置文件在 /data/clash/config.yaml.example
+预设配置文件在 /data/clash/config.example.yaml
 请重命名为 config.yaml 后使用DashBoard启动/停止 或者使用tools文件夹下的start.sh/stop.sh
 ************************************************
-Telegram Channel: https://t.me/akashaProxy
+Telegram Channel: https://t.me/akashaProxyci
 "

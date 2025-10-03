@@ -20,13 +20,13 @@ import Divider from '@mui/material/Divider';
 import LoadingButton from '@mui/lab/LoadingButton';
 import { exec, toast } from 'kernelsu';
 import { useEffect, useState, useMemo } from 'react';
-import { CLASH_PATH } from './consts';
+import { MIHOMO_PATH } from './consts';
 import yaml from 'js-yaml';
 import Card from '@mui/material/Card';
 import CssBaseline from '@mui/material/CssBaseline';
 
 
-interface ClashInfo {
+interface MihomoInfo {
   version: string | null,
   versions: string | null,
   daemon: number | null,
@@ -36,7 +36,7 @@ interface ClashInfo {
   ipspeed: string | null,
   loading: boolean,
 }
-function ClashCard({ info, setClashInfo, dark }: { info: ClashInfo, setClashInfo: (callback: (info: ClashInfo) => ClashInfo) => void, dark: boolean }) {
+function MihomoCard({ info, setMihomoInfo, dark }: { info: MihomoInfo, setMihomoInfo: (callback: (info: MihomoInfo) => MihomoInfo) => void, dark: boolean }) {
   let bigButtonStyle: React.CSSProperties = {
     width: "100%",
     padding: "20px",
@@ -91,8 +91,8 @@ function ClashCard({ info, setClashInfo, dark }: { info: ClashInfo, setClashInfo
           loading={info.loading}
           startIcon={info.daemon != null ? (<DoneAll />) : (<ClearIcon />)}
           color={info.daemon != null ? "success" : "warning"}
-          onClick={() => info.daemon != null ? stopClash(setClashInfo) : startClash(setClashInfo)}
-        >{info.daemon != null ? "Clash 运行正常" : "Clash 已停止"}</LoadingButton>
+          onClick={() => info.daemon != null ? stopMihomo(setMihomoInfo) : startMihomo(setMihomoInfo)}
+        >{info.daemon != null ? "Mihomo 运行正常" : "Mihomo 已停止"}</LoadingButton>
 
         {info.daemon != null && (
           <Button variant="contained"
@@ -120,7 +120,7 @@ function ClashCard({ info, setClashInfo, dark }: { info: ClashInfo, setClashInfo
 
       <Card style={{ padding: '16px', backgroundColor: dark ? '#303030' : '#fafafc', marginTop: "2rem" }}>
         <Stack spacing={1}>
-          <InfoLine title="Clash版本">
+          <InfoLine title="Mihomo版本">
             {(info.version != null && <Chip label={info.version} color="primary" variant="outlined" size='small' />)}
             {(info.version == null && <Chip label="未知" color="warning" variant="outlined" size='small' />)}
 
@@ -156,32 +156,32 @@ function ClashCard({ info, setClashInfo, dark }: { info: ClashInfo, setClashInfo
   )
 }
 
-async function startClash(setClashInfo: (callback: (info: ClashInfo) => ClashInfo) => void) {
-  setClashInfo(info => ({ ...info, loading: true }));
+async function startMihomo(setMihomoInfo: (callback: (info: MihomoInfo) => MihomoInfo) => void) {
+  setMihomoInfo(info => ({ ...info, loading: true }));
   try {
-    // we need change cgroup before start clash, otherwise clash will be killed when kernelsu manager is be killed
-    let process = await exec(`su -c "${CLASH_PATH}/tools/start.sh"`);
+    // we need change cgroup before start mihomo, otherwise mihomo will be killed when kernelsu manager is be killed
+    let process = await exec(`su -c "${MIHOMO_PATH}/tools/start.sh"`);
     if (process.errno != 0) {
       throw 'Failed: Exit code ' + process.errno + '\noutput: ' + process.stdout + '\nstderr: ' + process.stderr;
     }
-    await updateInfo(setClashInfo);
+    await updateInfo(setMihomoInfo);
   } catch (err) {
-    setClashInfo(info => ({ ...info, loading: false }));
+    setMihomoInfo(info => ({ ...info, loading: false }));
     console.error(err);
     toast("" + err);
   }
 }
 
-async function stopClash(setClashInfo: (callback: (info: ClashInfo) => ClashInfo) => void) {
-  setClashInfo(info => ({ ...info, loading: true }));
+async function stopMihomo(setMihomoInfo: (callback: (info: MihomoInfo) => MihomoInfo) => void) {
+  setMihomoInfo(info => ({ ...info, loading: true }));
   try {
-    let process = await exec(CLASH_PATH + '/tools/stop.sh');
+    let process = await exec(MIHOMO_PATH + '/tools/stop.sh');
     if (process.errno != 0) {
       throw 'Failed: Exit code ' + process.errno + '\noutput: ' + process.stdout + '\nstderr: ' + process.stderr;
     }
-    await updateInfo(setClashInfo);
+    await updateInfo(setMihomoInfo);
   } catch (err) {
-    setClashInfo(info => ({ ...info, loading: false }));
+    setMihomoInfo(info => ({ ...info, loading: false }));
     console.error(err);
     toast("" + err);
   }
@@ -189,7 +189,7 @@ async function stopClash(setClashInfo: (callback: (info: ClashInfo) => ClashInfo
 
 async function deleteCache() {
   try {
-    let process = await exec(CLASH_PATH + '/tools/DeleteCache.sh');
+    let process = await exec(MIHOMO_PATH + '/tools/DeleteCache.sh');
     if (process.errno != 0) {
       throw 'Failed: Exit code ' + process.errno + '\noutput: ' + process.stdout + '\nstderr: ' + process.stderr;
     }
@@ -200,31 +200,31 @@ async function deleteCache() {
   }
 }
 
-async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInfo) => void) {
-  let resultInfo: ClashInfo = { version: null, versions: null, daemon: null, webui: null, iptest: null, ipspeed: null, log: null, loading: false };
+async function updateInfo(setMihomoInfo: (callback: (info: MihomoInfo) => MihomoInfo) => void) {
+  let resultInfo: MihomoInfo = { version: null, versions: null, daemon: null, webui: null, iptest: null, ipspeed: null, log: null, loading: false };
   let running = false;
-  // Get clash file name
-  let clashFileName = null;
+  // Get mihomo file name
+  let fileName = null;
   try {
-    let cmd = `source ${CLASH_PATH}/clash.config && printf "%s" $Clash_bin_name`;
+    let cmd = `source ${MIHOMO_PATH}/clash.config && printf "%s" $Mihomo_bin_name`;
     let process = await exec(cmd);
     if (process.errno != 0) {
       throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
     }
-    clashFileName = process.stdout;
+    fileName = process.stdout;
   } catch (err) {
     console.error(err);
   }
   // Get clash version
-  if (clashFileName) {
+  if (fileName) {
     try {
-      let cmd = `"${CLASH_PATH}/kernel/${clashFileName}" -v`;
+      let cmd = `"${MIHOMO_PATH}/kernel/${fileName}" -v`;
       let process = await exec(cmd);
       if (process.errno != 0) {
         throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
       }
       let version = process.stdout;
-      let versionMatch = version.match(/^(Clash|Mihomo Meta) ([^ ]+)/);
+      let versionMatch = version.match(/^(Mihomo|Mihomo Meta) ([^ ]+)/);
       if (versionMatch == null) {
         throw 'Failed to parse version from `' + version + '`';
       }
@@ -235,14 +235,14 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
     }
     // get daemon pid
     try {
-      let cmd = `cat ${CLASH_PATH}/run/clash.pid`;
+      let cmd = `source ${MIHOMO_PATH}/clash.config && printf "%s" $(busybox pidof $kernel_bin)`;
       let process = await exec(cmd);
       if (process.errno != 0) {
         throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
       }
       let pid = process.stdout.trim();
       // check if pid is running
-      let getExeProcess = await exec(`test $(realpath /proc/${pid}/exe) == $(realpath "${CLASH_PATH}/kernel/${clashFileName}") || exit 1`);
+      let getExeProcess = await exec(`test $(realpath /proc/${pid}/exe) == $(realpath "${MIHOMO_PATH}/kernel/${fileName}") || exit 1`);
       if (getExeProcess.errno == 0) {
         running = true;
         resultInfo.daemon = parseInt(pid);
@@ -255,9 +255,9 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
   if (running) {
     // Get webui address
     try {
-      let configYamlProcess = await exec('cat ' + CLASH_PATH + '/run/config.yaml');
+      let configYamlProcess = await exec('cat ' + MIHOMO_PATH + '/run/config.yaml');
       if (configYamlProcess.errno != 0) {
-        throw 'Failed to execute `cat ' + CLASH_PATH + '/run/webui.addr`: Exit code ' + configYamlProcess.errno;
+        throw 'Failed to execute `cat ' + MIHOMO_PATH + '/run/webui.addr`: Exit code ' + configYamlProcess.errno;
       }
       let configYaml = configYamlProcess.stdout;
       let config = yaml.load(configYaml) as {
@@ -275,7 +275,7 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
   }
   // get iptest
   try {
-    let cmd = `source ${CLASH_PATH}/clash.config && printf "%s" $iptest`;
+    let cmd = `source ${MIHOMO_PATH}/clash.config && printf "%s" $iptest`;
     let process = await exec(cmd);
     if (process.errno != 0) {
       throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
@@ -286,7 +286,7 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
   }
   // get ipspeed
   try {
-    let cmd = `source ${CLASH_PATH}/clash.config && printf "%s" $ipspeed`;
+    let cmd = `source ${MIHOMO_PATH}/clash.config && printf "%s" $ipspeed`;
     let process = await exec(cmd);
     if (process.errno != 0) {
       throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
@@ -297,7 +297,7 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
   }
   // get module version
   try {
-    let cmd = `source ${CLASH_PATH}/clash.config && printf "%s" $Module_version`;
+    let cmd = `source ${MIHOMO_PATH}/clash.config && printf "%s" $Module_version`;
     let process = await exec(cmd);
     if (process.errno != 0) {
       throw 'Failed to execute `' + cmd + '`: Exit code ' + process.errno;
@@ -309,32 +309,32 @@ async function updateInfo(setClashInfo: (callback: (info: ClashInfo) => ClashInf
 
   // get logs
   try {
-    let logProcess = await exec('tail -n 100 ' + CLASH_PATH + '/run/run.logs');
+    let logProcess = await exec('tail -n 100 ' + MIHOMO_PATH + '/run/run.logs');
     if (logProcess.errno != 0) {
-      throw 'Failed to execute `tail -n 100 ' + CLASH_PATH + '/run/run.logs`: Exit code ' + logProcess.errno;
+      throw 'Failed to execute `tail -n 100 ' + MIHOMO_PATH + '/run/run.logs`: Exit code ' + logProcess.errno;
     }
     resultInfo.log = logProcess.stdout;
   } catch (err) {
     console.error(err);
   }
-  setClashInfo(() => resultInfo);
+  setMihomoInfo(() => resultInfo);
 }
 
-function saveClashInfo(clashInfo: ClashInfo) {
-  if (!clashInfo.loading && typeof window !== "undefined") {
-    window.sessionStorage.setItem('clashInfo', JSON.stringify(clashInfo));
+function saveMihomoInfo(mihomoInfo: MihomoInfo) {
+  if (!mihomoInfo.loading && typeof window !== "undefined") {
+    window.sessionStorage.setItem('mihomoInfo', JSON.stringify(mihomoInfo));
   }
 }
 
-function loadClashInfo(): ClashInfo {
-  const defaultInfo: ClashInfo = { version: null, versions: null, daemon: null, webui: null, log: null, iptest: null, ipspeed: null, loading: true };
+function loadMihomoInfo(): MihomoInfo {
+  const defaultInfo: MihomoInfo = { version: null, versions: null, daemon: null, webui: null, log: null, iptest: null, ipspeed: null, loading: true };
   if (typeof window !== "undefined") {
-    let clashInfo = window.sessionStorage.getItem('clashInfo');
-    if (clashInfo == null) {
+    let mihomoInfo = window.sessionStorage.getItem('mihomoInfo');
+    if (mihomoInfo == null) {
       return defaultInfo;
     }
     try {
-      return JSON.parse(clashInfo);
+      return JSON.parse(mihomoInfo);
     } catch (err) {
       console.error(err);
       return defaultInfo;
@@ -345,11 +345,11 @@ function loadClashInfo(): ClashInfo {
 }
 
 export default function Home() {
-  let [clashInfo, setClashInfo] = useState<ClashInfo>({ version: null, versions: null, daemon: null, webui: null, log: null, iptest: null, ipspeed: null, loading: true });
-  useEffect(() => saveClashInfo(clashInfo), [clashInfo]);
+  let [mihomoInfo, setMihomoInfo] = useState<MihomoInfo>({ version: null, versions: null, daemon: null, webui: null, log: null, iptest: null, ipspeed: null, loading: true });
+  useEffect(() => saveMihomoInfo(mihomoInfo), [mihomoInfo]);
   useEffect(() => {
-    loadClashInfo();
-    updateInfo(setClashInfo);
+    loadMihomoInfo();
+    updateInfo(setMihomoInfo);
   }, [])
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   return (
@@ -363,10 +363,10 @@ export default function Home() {
             akashaProxy
           </Typography>
           <Container maxWidth="md" style={{ paddingLeft: '0px', paddingRight: '0px' }}>
-            <ClashCard info={clashInfo} setClashInfo={setClashInfo} dark={prefersDarkMode} />
+            <MihomoCard info={mihomoInfo} setMihomoInfo={setMihomoInfo} dark={prefersDarkMode} />
           </Container>
 
-          <Fab size="small" color="success" style={{ right: '1em', bottom: '1em', zIndex: 999, position: 'fixed' }} onClick={() => updateInfo(setClashInfo)}>
+          <Fab size="small" color="success" style={{ right: '1em', bottom: '1em', zIndex: 999, position: 'fixed' }} onClick={() => updateInfo(setMihomoInfo)}>
             <RotateRight />
           </Fab>
         </div>

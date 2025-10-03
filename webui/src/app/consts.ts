@@ -1,1 +1,1 @@
-export const CLASH_PATH = '/data/clash'
+export const MIHOMO_PATH = '/data/clash'

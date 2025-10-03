@@ -1,0 +1,191 @@
+[ -z "$version" ] && . /data/clash/clash.config
+
+set_tproxy() {
+    if [ "$(sysctl -n net.ipv4.ip_forward)" -ne 1 ]; then
+        sysctl -w net.ipv4.ip_forward=1
+    fi
+
+    ip -4 rule add fwmark ${mark_id} table ${table_id} pref ${pref_id}
+    ip -4 route add local default dev lo table ${table_id}
+
+    if [ "${ipv6}" = "true" ] ; then
+        if [ "$(sysctl -n net.ipv6.conf.all.forwarding)" -ne 1 ]; then
+            sysctl -w net.ipv6.conf.all.forwarding=1
+        fi
+        ip -6 rule add fwmark ${mark_id} table ${table_id} pref ${pref_id}
+        ip -6 route add local default dev lo table ${table_id}
+    fi
+
+    # 处理PREROUTING链
+    iptables_wait -t nat -N DNS_PRE
+    iptables_wait -t nat -F DNS_PRE
+    iptables_wait -t mangle -N KERNEL_PRE
+    iptables_wait -t mangle -F KERNEL_PRE
+
+    # 跳过TProxy已处理的流量(感谢box4magisk)
+    iptables_wait -t mangle -A PREROUTING -p tcp -m socket --transparent -j MARK --set-xmark ${mark_id}
+    iptables_wait -t mangle -A PREROUTING -p udp -m socket --transparent -j MARK --set-xmark ${mark_id}
+    iptables_wait -t mangle -A PREROUTING -m socket -j RETURN
+
+    if [ "${dns_status}" = "true" ]; then
+        iptables_wait -t nat -A DNS_PRE -p udp --dport 53 -j REDIRECT --to-ports "${dns_port}"
+        iptables_wait -t nat -A DNS_PRE -p tcp --dport 53 -j REDIRECT --to-ports "${dns_port}"
+    fi
+
+    for ip in ${reserved_ip} ; do
+        iptables_wait -t nat -A DNS_PRE -d "${ip}" -j RETURN
+        iptables_wait -t mangle -A KERNEL_PRE -d "${ip}" -j RETURN
+    done
+
+    if [ "${ipv6}" = "true" ] ; then
+        for ip in ${reserved_ip6} ; do
+            iptables_wait -t nat -A DNS_PRE -d "${ip}" -j RETURN
+            iptables_wait -t mangle -A KERNEL_PRE -d "${ip}" -j RETURN
+        done
+    fi
+
+    # 透明代理流量到核心
+    iptables_wait -t mangle -A KERNEL_PRE -p tcp -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}"
+    iptables_wait -t mangle -A KERNEL_PRE -p udp -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}"
+
+
+    ap="$(get_ap_interfaces 2>/dev/null | head -n1)"
+    if [ -n "$ap" ]; then
+        iptables_wait -t mangle -A KERNEL_PRE -p tcp -i "$ap" -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}"
+        iptables_wait -t mangle -A KERNEL_PRE -p udp -i "$ap" -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${mark_id}"
+    fi
+
+    iptables_wait -t nat -A PREROUTING -j DNS_PRE
+    iptables_wait -t mangle -A PREROUTING -j KERNEL_PRE
+
+    # 处理OUTPUT链
+    iptables_wait -t nat -N DNS_OUTPUT
+    iptables_wait -t nat -F DNS_OUTPUT
+
+    iptables_wait -t mangle -N KERNEL_OUT
+    iptables_wait -t mangle -F KERNEL_OUT
+
+    iptables_wait -t nat -A DNS_OUTPUT -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -j RETURN
+    iptables_wait -t mangle -A KERNEL_OUT -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -j RETURN
+
+    ${scripts_dir}/clash.tool -f # 刷新appuid_file
+
+    if [ "${kernel_enhanced_mode}" = "fake-ip" ]; then
+        mode="blacklist"
+    fi
+
+    if [ -f "${appuid_file}" ]; then
+        apps=$(cat "${appuid_file}" | sort -u)
+    else
+        log "warn: ${appuid_file} 文件不存在 无法进行app分流"
+        apps=""
+    fi
+
+    
+    if [ "${mode}" = "global" ];then
+        mode="blacklist"
+        apps=""
+    fi
+
+    if [ "${mode}" = "blacklist" ] ; then
+        #绕过app
+        for appuid in ${apps} ; do
+            if [ -n "${appuid}" ]; then
+
+                if [ "${dns_status}" = "true" ]; then
+                    iptables_wait -t nat -A DNS_OUTPUT -p tcp -m owner --uid-owner ${appuid} --dport 53 -j RETURN
+                    iptables_wait -t nat -A DNS_OUTPUT -p udp -m owner --uid-owner ${appuid} --dport 53 -j RETURN
+                fi
+
+                iptables_wait -t mangle -A KERNEL_OUT -p tcp -m owner --uid-owner ${appuid} -j RETURN
+                iptables_wait -t mangle -A KERNEL_OUT -p udp -m owner --uid-owner ${appuid} -j RETURN
+            fi
+        done
+            # 劫持DNS 到 Kernel DNS
+        if [ "${dns_status}" = "true" ]; then
+            iptables_wait -t nat -A DNS_OUTPUT -p tcp --dport 53 -j REDIRECT --to-ports ${dns_port}
+            iptables_wait -t nat -A DNS_OUTPUT -p udp --dport 53 -j REDIRECT --to-ports ${dns_port}
+        fi
+
+        iptables_wait -t mangle -A KERNEL_OUT -p tcp -j MARK --set-xmark ${mark_id}
+        iptables_wait -t mangle -A KERNEL_OUT -p udp -j MARK --set-xmark ${mark_id}
+
+    elif [ "${mode}" = "whitelist" ] ; then
+        # 代理app
+        for appuid in ${apps} ; do
+            if [ -n "${appuid}" ]; then
+
+                if [ "${dns_status}" = "true" ]; then
+                    iptables_wait -t nat -A DNS_OUTPUT -p tcp -m owner --uid-owner ${appuid} --dport 53 -j REDIRECT --to-ports ${dns_port}
+                    iptables_wait -t nat -A DNS_OUTPUT -p udp -m owner --uid-owner ${appuid} --dport 53 -j REDIRECT --to-ports ${dns_port}
+                fi
+
+                iptables_wait -t mangle -A KERNEL_OUT -p tcp -m owner --uid-owner ${appuid} -j MARK --set-xmark ${mark_id}
+                iptables_wait -t mangle -A KERNEL_OUT -p udp -m owner --uid-owner ${appuid} -j MARK --set-xmark ${mark_id}
+            fi
+        done
+        
+        if [ "${dns_status}" = "true" ]; then
+            iptables_wait -t nat -A DNS_OUTPUT -p tcp --dport 53 -j RETURN
+            iptables_wait -t nat -A DNS_OUTPUT -p udp --dport 53 -j RETURN
+        fi
+
+        iptables_wait -t mangle -A KERNEL_OUT -p tcp -j RETURN
+        iptables_wait -t mangle -A KERNEL_OUT -p udp -j RETURN
+    fi
+
+    iptables_wait -t nat -A OUTPUT -j DNS_OUTPUT
+    iptables_wait -t mangle -A OUTPUT -j KERNEL_OUT
+
+    iptables_wait -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+    iptables_wait -A OUTPUT -d ::1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+}
+
+unset_tproxy() {
+    ip -4 rule del fwmark ${mark_id} table ${table_id} pref ${pref_id}
+    ip -4 route del local default dev lo table ${table_id}
+
+    if [ "${ipv6}" = "true" ] ; then
+        ip -6 rule del fwmark ${mark_id} table ${table_id} pref ${pref_id}
+        ip -6 route del local default dev lo table ${table_id}
+    fi
+
+    # 处理PREROUTING链
+    iptables_wait -t nat -D PREROUTING -j DNS_PRE
+    iptables_wait -t nat -F DNS_PRE
+    iptables_wait -t nat -X DNS_PRE
+
+    iptables_wait -t mangle -D PREROUTING -j KERNEL_PRE
+    iptables_wait -t mangle -F KERNEL_PRE
+    iptables_wait -t mangle -X KERNEL_PRE
+
+    iptables_wait -t mangle -D PREROUTING -p tcp -m socket --transparent -j MARK --set-xmark ${mark_id}
+    iptables_wait -t mangle -D PREROUTING -p udp -m socket --transparent -j MARK --set-xmark ${mark_id}
+    iptables_wait -t mangle -D PREROUTING -m socket -j RETURN
+
+    # 处理OUTPUT链
+    iptables_wait -t nat -D OUTPUT -j DNS_OUTPUT
+    iptables_wait -t nat -F DNS_OUTPUT
+    iptables_wait -t nat -X DNS_OUTPUT
+    iptables_wait -t mangle -D OUTPUT -j KERNEL_OUT
+    iptables_wait -t mangle -F KERNEL_OUT
+    iptables_wait -t mangle -X KERNEL_OUT
+
+    iptables_wait -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+    iptables_wait -D OUTPUT -d ::1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+}
+
+
+while getopts ":sk" signal ; do
+    case ${signal} in
+        s)
+            set_tproxy
+            ;;
+        k)
+            unset_tproxy
+            ;;
+        ?)
+            echo ""
+            ;;
+    esac
+done

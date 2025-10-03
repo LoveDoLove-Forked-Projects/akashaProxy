@@ -1,1 +1,0 @@
-/data/clash/scripts/clash.tool -s

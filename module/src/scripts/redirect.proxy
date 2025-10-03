@@ -1,0 +1,130 @@
+[ -z "$version" ] && . /data/clash/clash.config
+
+set_redirect() {
+
+    # 处理PREROUTING链
+    iptables_wait -t nat -N KERNEL_PRE
+    iptables_wait -t nat -F KERNEL_PRE
+    
+    if [ "${dns_status}" = "true" ]; then
+        iptables_wait -t nat -A KERNEL_PRE -p udp --dport 53 -j REDIRECT --to-ports "${dns_port}"
+        iptables_wait -t nat -A KERNEL_PRE -p tcp --dport 53 -j REDIRECT --to-ports "${dns_port}"
+    fi
+
+    iptables_wait -t nat -A KERNEL_PRE -p tcp -i lo -j REDIRECT --to-ports ${redirect_port}
+
+    ap="$(get_ap_interfaces 2>/dev/null | head -n1)"
+    if [ -n "$ap" ]; then
+        iptables_wait -t nat -A KERNEL_PRE -p tcp -i "$ap" -j REDIRECT --to-ports ${redirect_port}
+        iptables_wait -t nat -A KERNEL_PRE -p udp -i "$ap" -j REDIRECT --to-ports ${redirect_port}
+    fi
+
+    iptables_wait -t nat -A PREROUTING -j KERNEL_PRE
+
+    # 处理OUTPUT链
+
+    iptables_wait -t nat -N KERNEL_OUT
+    iptables_wait -t nat -F KERNEL_OUT
+
+    iptables_wait -t nat -A KERNEL_OUT -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -j RETURN
+
+    ${scripts_dir}/clash.tool -f # 刷新appuid_file
+
+    if [ "${kernel_enhanced_mode}" = "fake-ip" ]; then
+        mode="blacklist"
+    fi
+
+    if [ -f "${appuid_file}" ]; then
+        apps=$(cat "${appuid_file}" | sort -u)
+    else
+        log "warn: ${appuid_file} 文件不存在 无法进行app分流"
+        apps=""
+    fi
+
+    
+    if [ "${mode}" = "global" ];then
+        mode="blacklist"
+        apps=""
+    fi
+
+    if [ "${mode}" = "blacklist" ] ; then
+        #绕过app
+        for appuid in ${apps} ; do
+            if [ -n "${appuid}" ]; then
+                iptables_wait -t nat -A KERNEL_OUT -p tcp -m owner --uid-owner ${appuid} -j RETURN
+                iptables_wait -t nat -A KERNEL_OUT -p udp -m owner --uid-owner ${appuid} -j RETURN
+            fi
+        done
+            # 劫持DNS 到 Kernel DNS
+        if [ "${dns_status}" = "true" ]; then
+            iptables_wait -t nat -A KERNEL_OUT -p udp --dport 53 -j REDIRECT --to-ports ${dns_port}
+            iptables_wait -t nat -A KERNEL_OUT -p tcp --dport 53 -j REDIRECT --to-ports ${dns_port}
+        fi
+
+        iptables_wait -t nat -A KERNEL_OUT -p tcp -j REDIRECT --to-ports ${redirect_port}
+
+
+
+    elif [ "${mode}" = "whitelist" ] ; then
+        # 代理app
+        for appuid in ${apps} ; do
+            if [ -n "${appuid}" ]; then
+                iptables_wait -t nat -A KERNEL_OUT -p tcp -m owner --uid-owner ${appuid} -j REDIRECT --to-ports ${redirect_port}
+            fi
+        done
+
+        if [ "${dns_status}" = "true" ]; then
+            iptables_wait -t nat -A KERNEL_OUT -p tcp --dport 53 -j RETURN
+            iptables_wait -t nat -A KERNEL_OUT -p udp --dport 53 -j RETURN
+        fi
+
+        iptables_wait -t nat -A KERNEL_OUT -p tcp -j RETURN
+    fi
+
+    iptables_wait -t nat -A OUTPUT -j DNS_OUTPUT
+    iptables_wait -t nat -A OUTPUT -j KERNEL_OUT
+    iptables_wait -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${dns_port} -j REJECT
+    iptables_wait -A OUTPUT -d ::1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${dns_port} -j REJECT
+    iptables_wait -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+    iptables_wait -A OUTPUT -d ::1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+}
+
+unset_redirect() {
+    ip -4 rule del fwmark ${mark_id} table ${table_id} pref ${pref_id}
+    ip -4 route del local default dev lo table ${table_id}
+
+    if [ "${ipv6}" = "true" ] ; then
+        ip -6 rule del fwmark ${mark_id} table ${table_id} pref ${pref_id}
+        ip -6 route del local default dev lo table ${table_id}
+    fi
+
+    # 处理PREROUTING链
+    iptables_wait -t nat -D PREROUTING -j KERNEL_PRE
+    iptables_wait -t nat -F KERNEL_PRE
+    iptables_wait -t nat -X KERNEL_PRE
+
+    # 处理OUTPUT链
+    iptables_wait -t nat -D OUTPUT -j KERNEL_OUT
+    iptables_wait -t nat -F KERNEL_OUT
+    iptables_wait -t nat -X KERNEL_OUT
+
+    iptables_wait -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${dns_port} -j REJECT
+    iptables_wait -D OUTPUT -d ::1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${dns_port} -j REJECT
+    iptables_wait -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+    iptables_wait -D OUTPUT -d ::1 -p tcp -m owner --uid-owner ${kernel_user} --gid-owner ${kernel_group} -m tcp --dport ${tproxy_port} -j REJECT
+}
+
+
+while getopts ":sk" signal ; do
+    case ${signal} in
+        s)
+            set_redirect
+            ;;
+        k)
+            unset_redirect
+            ;;
+        ?)
+            echo ""
+            ;;
+    esac
+done
