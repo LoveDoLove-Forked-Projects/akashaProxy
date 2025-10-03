@@ -67,5 +67,8 @@ make
 
 ## 发布
 
-[Telegram](https://t.me/akashaProxy)
-[Github工作流(需要解压)](https://github.com/ModuleList/akashaProxy/actions)
+[Telegram](https://t.me/akashaProxyci)
+
+[Github工作流(需要解压)](https://github.com/akashaProxy/akashaProxy/actions)
+
+[Github releases](https://github.com/akashaProxy/akashaProxy/releases)

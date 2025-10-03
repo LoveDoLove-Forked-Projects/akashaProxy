@@ -67,5 +67,8 @@ make
 
 ## Publish
 
-[Telegram](https://t.me/akashaProxy)
-[Github workflow (requires decompression)](https://github.com/ModuleList/akashaProxy/actions)
+[Telegram](https://t.me/akashaProxyci)
+
+[Github action(requires decompression)](https://github.com/akashaProxy/akashaProxy/actions)
+
+[Github releases](https://github.com/akashaProxy/akashaProxy/releases)
