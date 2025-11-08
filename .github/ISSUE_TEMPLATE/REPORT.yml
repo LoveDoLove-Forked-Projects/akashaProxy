@@ -49,6 +49,14 @@ body:
       required: true
 
   - type: textarea
+    attributes:
+      label: "Steps to reproduce/复现步骤"
+      placeholder: .......
+    validations:
+      required: true
+
+
+  - type: textarea
     id: log
     attributes:
       label: "module log/模块日志"
@@ -57,9 +65,3 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    attributes:
-      label: "Steps to reproduce/复现步骤"
-      placeholder: .......
-    validations:
-      required: true
