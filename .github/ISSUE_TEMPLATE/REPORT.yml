@@ -1,9 +1,7 @@
 name: "Bug"
 description: 问题报告.
-title: "[BUG] <问题标题>"
-labels: [
-  "bug"
-]
+title: "[BUG] "
+labels: [bug]
 body:
 
   - type: checkboxes
@@ -11,16 +9,23 @@ body:
     attributes:
       label: 须知
       description: |
+        Please confirm that all required options have been followed, otherwise it cannot be ruled out that the issue will be closed directly
         请确认已经遵守所有必选项，否则不排除将直接关闭 Issue
-        提交 Issue 前请确认当前为[akashaProxy CI](https://github.com/ModuleList/akashaProxy/actions)发布的最新版
       options:
-        - label: 我确认最新版依然存在此问题.
+        - label: I am using the latest version of akashaProxy/我使用的是最新版akashaProxy.
           required: true
 
+        - label: I confirm that this is not a core issue with mihomo/我确认这不是mihomo核心的问题.
+          required: true
+
+        - label: I confirm that this is not a problem caused by a configuration file error/我确认这不是配置文件错误导致的问题.
+          required: true
+
+          
   - type: dropdown
     id: browsers
     attributes:
-      label: 你的使用的root管理器是？
+      label: What is the root manager you are using/你的使用的root管理器是？
       multiple: false
       options:
         - Magisk release
@@ -31,39 +36,30 @@ body:
       required: true
 
   - type: textarea
-    id: description
     attributes:
-      label: "问题描述"
-      description: 请输入简洁且明确的问题描述。
-      placeholder: ......
+      label: Expected behaviour/预期行为
+      placeholder: Tell us what should happen/正常情况下应该发生什么
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Actual behaviour / 实际行为
+      placeholder: Tell us what happens instead / 实际上发生了什么
     validations:
       required: true
 
   - type: textarea
     id: log
     attributes:
-      label: "模块日志"
-      description: root管理器日志+去敏后的mihomo运行日志(kernel.log)
+      label: "module log/模块日志"
+      description: 
       placeholder: .......
     validations:
       required: true
 
   - type: textarea
-    id: repord
     attributes:
-      label: "复现步骤"
-      description: 输入简明的问题复现步骤。
-      value: .......
-      render: bash
+      label: "Steps to reproduce/复现步骤"
+      placeholder: .......
     validations:
-      required: false
-
-  - type: textarea
-    id: screenshot
-    attributes:
-      label: "问题截图"
-      description: 添加问题截图以便我们快速定位.
-      value: |
-        ![图片注释](图片链接)
-    validations:
-      required: false
+      required: true
