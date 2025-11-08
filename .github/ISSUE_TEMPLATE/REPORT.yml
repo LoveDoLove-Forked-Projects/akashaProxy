@@ -1,5 +1,5 @@
 name: "Bug"
-description: 问题报告.
+description: Bug report/反馈问题.
 title: "[BUG] "
 labels: [bug]
 body:
