@@ -85,26 +85,33 @@ hosts:
 
 dns:
   enable: true
-  listen: 0.0.0.0:1053 # dns监听地址和端口
-  enhanced-mode: redir-host # 个人喜欢redir-host模式 如果有需求可以改为fake-ip
+  listen: 0.0.0.0:1053
+  cache-algorithm: arc #dns缓存设置
+  ipv6: true #解析ipv6
+  enhanced-mode: fake-ip
+  fake-ip-range: 28.0.0.1/8
+  fake-ip-filter-mode: blacklist
   fake-ip-filter:
-    - '*'
-    - '+.lan'
-    - '+.local'
-  default-nameserver:
-    - 120.53.53.53
-    - 223.5.5.5
-  nameserver: #默认上游dns
-    - tls://dns.alidns.com
-    - tls://xxxxxxxx.cloudflare-gateway.com
+    - "*"
+    - "+.lan"
+    - "+.local"
+    - "xbox.*.microsoft.com"
+    - "+.xboxlive.com"
+    - "+.market.xiaomi.com"
+    - localhost.ptlogin2.qq.com
+  default-nameserver: #默认上游dns
+    - tls://1.12.12.21
+    - tls://223.5.5.5
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://xxxxxxx.cloudflare-gateway.com/dns-query #cloudflare零信任dns 可以自己申请一个
   nameserver-policy:
     "geosite:cn,private,apple": #国内网址使用以下dns
-      - tls://dot.pub
-      - tls://dns.alidns.com
-    "geosite:geolocation-!cn,gfw,!cn": #国外网址使用以下dns
-      - "https://xxxxxxxx.cloudflare-gateway.com/dns-query"
-      - "https://dns.google/dns-query#dns"
-
+      - https://dot.pub/dns-query
+      - https://dns.alidns.com/dns-query
+    "geosite:geolocation-!cn,gfw,!cn": #国外网址使用以下dns 已经走代理服务器了直接使用普通dns即可
+      - "1.1.1.1#自动选择"
+      - "8.8.8.8#自动选择"
 
 proxies:
 # mihomo配置参考可以看看这个wiki
