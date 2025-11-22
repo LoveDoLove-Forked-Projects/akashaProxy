@@ -75,7 +75,8 @@ unzip -o "${ZIPFILE}" -x 'META-INF/*' -d ${MODPATH} >&2
 unzip -o "${ZIPFILE}" -x 'src/*' -d ${MODPATH} >&2
 
 
-if [ -d "${data_dir}" ];then
+if [ -f "${data_dir}/config.yaml" ];then
+    ui_print "- config.yaml 文件已存在 跳过覆盖."
     rm -rf ${MODPATH}/src/config.example.yaml
 fi
 
