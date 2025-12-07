@@ -1,0 +1,3 @@
+[submodule "modules/ruleconverter"]
+	path = modules/ruleconverter
+	url = https://github.com/elysias123/ruleconverter

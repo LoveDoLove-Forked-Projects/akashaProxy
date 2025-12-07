@@ -20,6 +20,10 @@ jobs:
         [ ! -f module/bin ] && mkdir module/bin
         echo "buildSha=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
+    - name: Update Submodules
+      run: |
+        git submodule update --init --recursive --force
+
     - uses: pnpm/action-setup@v4
       name: Setup pnpm
       with:

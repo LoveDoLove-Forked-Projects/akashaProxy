@@ -6,3 +6,4 @@ module/webroot
 node_modules
 module/src/bin/yamlcli
 module/.update
+module/src/module/ruleconverter/bin/ruleconverter

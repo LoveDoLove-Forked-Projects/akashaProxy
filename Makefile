@@ -14,21 +14,21 @@ check-deps:
 
 download: download-mihomo download-dashboard
 
-pack: build-tools build-webui
+pack: build-tools build-webui build-ruleconverter
 	echo "id=akashaProxy\nname=akashaProxy\nversion="$(shell git rev-parse --short HEAD)"\nversionCode="$(shell git log -1 --format=%ct)"\nauthor=akashaProxy developer\ndescription=akasha terminal transparent proxy module that supports tproxy and tun and adds many easy-to-use features. Compatible with Magisk/KernelSU">module/module.prop
 	cd module && zip -r ../$(NAME).zip *
 	@echo "module pack successfully"
 
 download-mihomo:
 	@[ ! -f module/bin ] && mkdir -p module/bin
-	remote_mihomo_ver=$$(curl --connect-timeout 5 -Ls "https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt") && \
-	curl --connect-timeout 5 -Ls -o module/bin/mihomo-android-arm64-v8.gz \
+	remote_mihomo_ver=$$(curl --connect-timeout 5 -L "https://github.com/MetaCubeX/mihomo/releases/latest/download/version.txt") && \
+	curl --connect-timeout 5 --progress-bar -L -o module/bin/mihomo-android-arm64-v8.gz \
 	"https://github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-android-arm64-v8-$${remote_mihomo_ver}.gz"
 	@echo "mihomo download successfully"
 
 download-dashboard:
 	@[ ! -f module/src/bin ] && mkdir -p module/src/zashboard
-	curl --connect-timeout 5 -Ls -o module/src/zashboard/dist-cdn-fonts.zip \
+	curl --connect-timeout 5 --progress-bar -L -o module/src/zashboard/dist-cdn-fonts.zip \
 	"https://github.com/Zephyruso/zashboard/releases/latest/download/dist-cdn-fonts.zip"
 	unzip -o module/src/zashboard/dist-cdn-fonts.zip -d module/src/zashboard/
 	mv -f module/src/zashboard/dist/* module/src/zashboard/
@@ -37,7 +37,7 @@ download-dashboard:
 	@echo "dashboard download successfully"
 
 build-webui:
-	cd webui && pnpm i --frozen-lockfile
+	cd webui && pnpm i
 	cd webui && pnpm build
 	mv -f ./webui/out ./module/webroot
 	@echo "webui build successfully"
@@ -48,6 +48,12 @@ build-tools:
 	upx module/src/bin/yamlcli
 	@echo "yamlcli build successfully"
 
+build-ruleconverter:
+	cd modules/ruleconverter && go mod tidy
+	cd modules/ruleconverter && CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -trimpath -ldflags="-s -w" -buildvcs=false -o ../../module/src/module/ruleconverter/bin/ruleconverter
+	upx module/src/module/ruleconverter/bin/ruleconverter
+	@echo "ruleconverter build successfully"
+
 clean:
 	rm -rf ./module/module.prop
 	rm -rf $(NAME).zip
@@ -55,3 +61,4 @@ clean:
 	rm -rf ./module/src/zashboard
 	rm -rf ./module/bin/*
 	rm -rf ./module/src/bin/yamlcli
+	rm -rf ./module/src/module/ruleconverter/bin/ruleconverter
