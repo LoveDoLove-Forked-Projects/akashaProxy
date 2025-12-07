@@ -76,9 +76,52 @@ edit_tun() {
     log "info: 已自动覆写运行配置"
 }
 
+boot_module() {
+    for file in ${data_dir}/module/*/post-fs-data.sh; do
+
+        [ -x "$file" ] || continue
+        
+        (
+            cd "$(dirname "$file")"
+            busybox sh "$file"
+        )
+    done
+}
+
+start_module() {
+    for file in ${data_dir}/module/*/start.sh; do
+
+        [ -x "$file" ] || continue
+
+        module_name=$(printf '%s\n' "$file" | sed "s#${data_dir}/module/##"| sed 's#/start\.sh##')
+        
+        (
+            cd "$(dirname "$file")"
+            busybox sh "$file"
+        )&
+        log "info: ${module_name} 模块已启动."
+    done
+}
+
+stop_module() {
+    for file in ${data_dir}/module/*/stop.sh; do
+
+        [ -x "$file" ] || continue
+        
+        (
+            cd "$(dirname "$file")"
+            busybox sh "$file"
+        )&
+    done
+}
+
+
 start_service() {
 
+    boot_module
+
     rm -rf ${logs_file}
+
     if [ -f "${data_dir}/clash.example.yaml" ];then
         log "err: 请将预设配置(clash.example.yaml)重命名为clash.yaml后填写正确配置."
         exit 1
@@ -233,6 +276,8 @@ start_service() {
 
             log "info: 代理模式:${mode}"
             log "info: ${bin_name}内核已启动."
+
+            start_module
         else
             log "err: 配置有误，启动失败."
             log "err: 下面是错误日志"
@@ -264,6 +309,7 @@ stop_service() {
     rm -rf ${logs_file}
     [ "$(busybox pidof ${kernel_bin})" ] && kill -15 `busybox pidof ${kernel_bin}`
     log "info: 已停止${bin_name}内核."
+    stop_module
 }
 
 while getopts ":sk" signal ; do

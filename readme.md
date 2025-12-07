@@ -57,6 +57,10 @@ stop:
 
 You can also use [dashboard](https://t.me/MagiskChangeKing) to manage startup and shutdown or KernelSU webUI control
 
+## module
+
+[mdoule wiki](./docs/module.md)
+
 ## Compile
 
 Execute `make` to compile and package the module
